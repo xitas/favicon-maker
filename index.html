@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Favicon Generator</title>
+  <meta name="description" content="Make a favicon from text, an emoji or an image. Download favicon.ico, PNG sizes, an Apple touch icon and a web manifest.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="app">
+    <header class="top">
+      <h1>Favicon Generator</h1>
+      <p>Design an icon from text, an emoji or an image, then download everything a website needs. It all happens in your browser, so your image never leaves your device.</p>
+    </header>
+
+    <div class="layout">
+      <section class="panel controls" aria-label="Design">
+        <div class="seg" role="group" aria-label="Icon source">
+          <button id="modeText" type="button" aria-pressed="true">Text or emoji</button>
+          <button id="modeImage" type="button" aria-pressed="false">Image</button>
+        </div>
+
+        <div id="textPanel" class="group">
+          <label class="col" for="text">Text or emoji
+            <input id="text" type="text" value="F" maxlength="12" autocomplete="off" spellcheck="false">
+          </label>
+          <div class="two">
+            <label class="col" for="font">Font
+              <select id="font">
+                <option value="sans">Sans</option>
+                <option value="serif">Serif</option>
+                <option value="mono">Monospace</option>
+                <option value="display">Display</option>
+              </select>
+            </label>
+            <label class="check" for="bold"><input type="checkbox" id="bold" checked> Bold</label>
+          </div>
+          <label class="col" for="textScale">
+            <span class="row">Text size <output id="textScaleOut" for="textScale">70%</output></span>
+            <input type="range" id="textScale" min="30" max="100" value="70">
+          </label>
+          <label class="color" for="fg">Text color <input type="color" id="fg" value="#ffffff"></label>
+        </div>
+
+        <div id="imagePanel" class="group" hidden>
+          <label class="drop" id="drop" for="file">
+            <span id="dropText">Drop an image here, or click to choose</span>
+            <input type="file" id="file" accept="image/*">
+          </label>
+          <p id="fileNote" class="hint">PNG, JPG, SVG or WebP. A square image works best.</p>
+          <div class="two">
+            <label class="col" for="fit">Fit
+              <select id="fit">
+                <option value="contain">Contain</option>
+                <option value="cover">Cover</option>
+              </select>
+            </label>
+          </div>
+          <label class="col" for="pad">
+            <span class="row">Padding <output id="padOut" for="pad">0%</output></span>
+            <input type="range" id="pad" min="0" max="30" value="0">
+          </label>
+        </div>
+
+        <div class="group">
+          <label class="color" for="bg">Background color <input type="color" id="bg" value="#0b7a75"></label>
+          <label class="check" for="transparent"><input type="checkbox" id="transparent"> Transparent background</label>
+          <label class="col" for="radius">
+            <span class="row">Corner radius <output id="radiusOut" for="radius">22%</output></span>
+            <input type="range" id="radius" min="0" max="50" value="22">
+          </label>
+          <label class="col" for="appName">App name (used in the manifest)
+            <input id="appName" type="text" value="My App" maxlength="45" autocomplete="off">
+          </label>
+        </div>
+      </section>
+
+      <div class="out">
+        <section class="panel" aria-labelledby="previewTitle">
+          <h2 id="previewTitle">Preview</h2>
+          <div class="tabs" aria-label="Browser tab preview">
+            <div class="tab tab-a"><canvas id="tabA" width="32" height="32" aria-hidden="true"></canvas><span id="tabTitleA">My App</span></div>
+            <div class="tab tab-b"><canvas id="tabB" width="32" height="32" aria-hidden="true"></canvas><span id="tabTitleB">My App</span></div>
+          </div>
+          <ul id="sizes" class="sizes"></ul>
+        </section>
+
+        <section class="panel" aria-labelledby="filesTitle">
+          <div class="panel-head">
+            <h2 id="filesTitle">Files</h2>
+            <button id="zip" class="btn" type="button">Download all (.zip)</button>
+          </div>
+          <ul id="files" class="files"></ul>
+        </section>
+
+        <section class="panel" aria-labelledby="snippetTitle">
+          <div class="panel-head">
+            <h2 id="snippetTitle">Add it to your site</h2>
+            <button id="copySnippet" class="btn ghost" type="button">Copy</button>
+          </div>
+          <p class="hint">Put the files in the root of your site, then paste this inside the <code>&lt;head&gt;</code> of every page.</p>
+          <pre id="snippet" tabindex="0"><code></code></pre>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <script src="script.js" defer></script>
+</body>
+</html>
