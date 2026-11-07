@@ -75,12 +75,6 @@ If your site lives in a subfolder (for example GitHub Pages at `/<your-repo>/`),
 - Pick high contrast between the text and the background.
 - For an image, a simple square logo with a bit of padding works best.
 
-## Deploy with GitHub Pages
-
-1. Push the project to GitHub.
-2. Go to **Settings → Pages**.
-3. Under **Build and deployment**, choose **Deploy from a branch**, select `main` and `/ (root)`, then save.
-4. Your site will be live at `https://xitas.github.io/favicon-maker/`.
 
 ## License
 
