@@ -2,6 +2,8 @@
 
 A favicon generator built with plain HTML, CSS and JavaScript. Make an icon from text, an emoji or your own image, then download every file a website needs. No frameworks, no build step, and your image never leaves your browser.
 
+**Live demo:** [https://xitas.github.io/favicon-maker/](https://xitas.github.io/favicon-maker/)
+
 ## Features
 
 - **Two sources:** type a letter, word or emoji, or upload an image (PNG, JPG, SVG, WebP)
@@ -29,7 +31,7 @@ A favicon generator built with plain HTML, CSS and JavaScript. Make an icon from
 
 ## Getting started
 
-No installation needed.
+No installation needed. You can use the [live demo](https://xitas.github.io/favicon-maker/) or run it locally.
 
 1. Clone the repository:
    ```bash
@@ -74,7 +76,6 @@ If your site lives in a subfolder (for example GitHub Pages at `/<your-repo>/`),
 - Use one or two characters. Longer text becomes hard to read at 16 px.
 - Pick high contrast between the text and the background.
 - For an image, a simple square logo with a bit of padding works best.
-
 
 ## License
 
