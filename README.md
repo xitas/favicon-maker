@@ -23,11 +23,20 @@ A favicon generator built with plain HTML, CSS and JavaScript. Make an icon from
 
 ```
 .
-├── index.html   # Page markup
-├── style.css    # Styles
-├── script.js    # Drawing, ICO and ZIP builders, and UI
+├── index.html          # Page markup
+├── css/
+│   └── style.css       # Styles
+├── js/
+│   ├── lib/
+│   │   ├── zip.js      # ZIP archive builder (no compression, no library)
+│   │   └── ico.js      # ICO builder that packs PNG images
+│   ├── draw.js         # Draws the icon on a canvas from the current settings
+│   ├── outputs.js      # List of generated files, manifest and HTML snippet
+│   └── app.js          # Page UI: form, previews, downloads
 └── README.md
 ```
+
+The scripts are plain (non-module) scripts loaded in order, so the page still works when you open `index.html` straight from disk. Each file exposes one object (`Zip`, `Ico`, `Draw`, `Outputs`) that the files after it use.
 
 ## Getting started
 

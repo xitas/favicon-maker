@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
   <main class="app">
@@ -109,6 +109,11 @@
     </div>
   </main>
 
-  <script src="script.js" defer></script>
+  <!-- Order matters: each file uses the ones above it. -->
+  <script src="js/lib/zip.js" defer></script>
+  <script src="js/lib/ico.js" defer></script>
+  <script src="js/draw.js" defer></script>
+  <script src="js/outputs.js" defer></script>
+  <script src="js/app.js" defer></script>
 </body>
 </html>
