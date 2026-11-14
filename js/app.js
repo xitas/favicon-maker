@@ -14,10 +14,11 @@
     text: $('text'), font: $('font'), bold: $('bold'), textScale: $('textScale'), textScaleOut: $('textScaleOut'), fg: $('fg'),
     file: $('file'), drop: $('drop'), dropText: $('dropText'), fileNote: $('fileNote'), fit: $('fit'), pad: $('pad'), padOut: $('padOut'),
     bg: $('bg'), transparent: $('transparent'), radius: $('radius'), radiusOut: $('radiusOut'), appName: $('appName'),
-    tabA: $('tabA'), tabB: $('tabB'), tabTitleA: $('tabTitleA'), tabTitleB: $('tabTitleB'),
+    heroIcon: $('heroIcon'), tabA: $('tabA'), tabB: $('tabB'), tabTitleA: $('tabTitleA'), tabTitleB: $('tabTitleB'),
     sizes: $('sizes'), files: $('files'), zip: $('zip'), snippet: $('snippet'), copySnippet: $('copySnippet')
   };
 
+  const RANGES = ['textScale', 'pad', 'radius'];
   const INPUTS = ['text', 'font', 'bold', 'textScale', 'fg', 'fit', 'pad', 'bg', 'transparent', 'radius', 'appName'];
 
   let mode = 'text';
@@ -131,6 +132,13 @@
       thumbs.forEach((t) => Draw.icon(t.canvas.getContext('2d'), t.size, s, t.apple));
       [el.tabA, el.tabB].forEach((c) => Draw.icon(c.getContext('2d'), 32, s, false));
       el.tabTitleA.textContent = el.tabTitleB.textContent = s.appName;
+      Draw.icon(el.heroIcon.getContext('2d'), el.heroIcon.width, s, false);
+
+      // Filled part of each slider's track.
+      RANGES.forEach((k) => {
+        const r = el[k];
+        r.style.setProperty('--fill', ((r.value - r.min) / (r.max - r.min)) * 100 + '%');
+      });
 
       el.textScaleOut.textContent = s.textScale + '%';
       el.padOut.textContent = s.pad + '%';
@@ -189,18 +197,24 @@
       el.zip.disabled = true;
       const label = el.zip.textContent;
       el.zip.textContent = 'Preparing…';
+      el.zip.classList.add('busy');
       try {
         saveBlob(await Outputs.buildZip(readSettings()), 'favicons.zip');
       } finally {
+        el.zip.classList.remove('busy');
         el.zip.disabled = false;
         el.zip.textContent = label;
       }
     });
 
     el.copySnippet.addEventListener('click', () => {
-      const flash = (text, ms) => {
+      const flash = (text, ms, ok) => {
         el.copySnippet.textContent = text;
-        setTimeout(() => { el.copySnippet.textContent = 'Copy'; }, ms);
+        el.copySnippet.classList.toggle('ok', !!ok);
+        setTimeout(() => {
+          el.copySnippet.textContent = 'Copy';
+          el.copySnippet.classList.remove('ok');
+        }, ms);
       };
       const fallback = () => {
         const r = document.createRange();
@@ -210,7 +224,7 @@
         sel.addRange(r);
         flash('Press Ctrl/Cmd + C', 2500);
       };
-      try { navigator.clipboard.writeText(Outputs.SNIPPET).then(() => flash('Copied', 1500), fallback); } catch (e) { fallback(); }
+      try { navigator.clipboard.writeText(Outputs.SNIPPET).then(() => flash('Copied', 1500, true), fallback); } catch (e) { fallback(); }
     });
   }
 
