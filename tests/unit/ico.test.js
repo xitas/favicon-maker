@@ -86,7 +86,31 @@ test('a single image works', async () => {
   assert.ok(ico.entries[0].data.equals(pngs[0]));
 });
 
-test('sizes over 256 are rejected', { todo: 'Ico.make writes 0 (meaning 256) for any size of 256 or more, so a 512 px image is silently mislabeled' }, async () => {
-  const pngs = samplePngs([512]);
-  assert.throws(() => Ico.make([512], pngs.map(toArrayBuffer)));
+test('sizes over 256 are refused with a clear error', () => {
+  const buffers = samplePngs([16, 16]).map(toArrayBuffer);
+  for (const size of [257, 512, 1024]) {
+    assert.throws(() => Ico.make([16, size], buffers), (err) => {
+      assert.equal(err.name, 'RangeError');
+      assert.match(err.message, new RegExp(`1 to 256 px, but got ${size} px`));
+      return true;
+    }, `${size} px`);
+  }
+});
+
+test('sizes that are not whole positive numbers are refused', () => {
+  const buffers = samplePngs([16]).map(toArrayBuffer);
+  for (const size of [0, -16, 15.5, NaN, '16']) {
+    assert.throws(() => Ico.make([size], buffers), { name: 'RangeError' }, String(size));
+  }
+});
+
+test('a different number of sizes and images is refused', () => {
+  const buffers = samplePngs([16, 32]).map(toArrayBuffer);
+  assert.throws(() => Ico.make([16], buffers), /one image per size: got 1 sizes and 2 images/);
+});
+
+test('1 px and 255 px are written as themselves, only 256 is written as 0', async () => {
+  const sizes = [1, 255, 256];
+  const { buf } = await buildIco(sizes);
+  assert.deepEqual(parseIco(buf).entries.map((e) => [e.widthByte, e.heightByte]), [[1, 1], [255, 255], [0, 0]]);
 });

@@ -8,6 +8,14 @@ const Ico = (() => {
    * @returns {ArrayBuffer}
    */
   function make(sizes, buffers) {
+    if (sizes.length !== buffers.length) {
+      throw new Error(`ICO needs one image per size: got ${sizes.length} sizes and ${buffers.length} images.`);
+    }
+    sizes.forEach((size) => {
+      if (!Number.isInteger(size) || size < 1 || size > 256) {
+        throw new RangeError(`ICO images must be 1 to 256 px, but got ${size} px.`);
+      }
+    });
     const n = sizes.length;
     let offset = 6 + 16 * n;
     const total = offset + buffers.reduce((sum, b) => sum + b.byteLength, 0);
@@ -23,8 +31,8 @@ const Ico = (() => {
     // ICONDIRENTRY per image, followed by the image data
     sizes.forEach((size, i) => {
       const p = 6 + 16 * i;
-      dv.setUint8(p, size >= 256 ? 0 : size);
-      dv.setUint8(p + 1, size >= 256 ? 0 : size);
+      dv.setUint8(p, size === 256 ? 0 : size); // 0 means 256
+      dv.setUint8(p + 1, size === 256 ? 0 : size);
       dv.setUint8(p + 2, 0);
       dv.setUint8(p + 3, 0);
       dv.setUint16(p + 4, 1, true);
