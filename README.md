@@ -33,6 +33,7 @@ A favicon generator built with plain HTML, CSS and JavaScript. Make an icon from
 │   ├── draw.js         # Draws the icon on a canvas from the current settings
 │   ├── outputs.js      # List of generated files, manifest and HTML snippet
 │   └── app.js          # Page UI: form, previews, downloads
+├── LICENSE
 └── README.md
 ```
 
@@ -88,4 +89,6 @@ If your site lives in a subfolder (for example GitHub Pages at `/<your-repo>/`),
 
 ## License
 
-Add a license of your choice (for example MIT) in a `LICENSE` file.
+This project is free for personal and other non-commercial use. Commercial use needs permission. To ask about commercial use, [open an issue on GitHub](https://github.com/xitas/favicon-maker/issues).
+
+The full terms are in the [LICENSE](LICENSE) file (PolyForm Noncommercial License 1.0.0).
