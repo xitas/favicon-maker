@@ -33,7 +33,12 @@ A favicon generator built with plain HTML, CSS and JavaScript. Make an icon from
 │   ├── draw.js         # Draws the icon on a canvas from the current settings
 │   ├── outputs.js      # List of generated files, manifest and HTML snippet
 │   └── app.js          # Page UI: form, previews, downloads
+├── tests/
+│   ├── helpers/        # Loads the scripts in Node, file format readers, browser setup
+│   ├── unit/           # node:test unit tests
+│   └── browser/        # Playwright checks of the real page
 ├── LICENSE
+├── package.json        # Test tools only, the page doesn't use them
 └── README.md
 ```
 
@@ -57,6 +62,19 @@ python3 -m http.server 8000
 ```
 
 Then visit `http://localhost:8000`.
+
+## Running tests
+
+The page itself needs nothing installed. The tests use Node.js 22 or newer and a few development-only packages.
+
+```bash
+npm ci                              # install the test tools
+npm test                            # unit tests for the ZIP, ICO and output builders
+npx playwright install chromium     # once, for the browser checks
+npm run test:browser                # opens the page in Chromium from file:// and a local server
+```
+
+Known bugs are recorded as todo tests: they show in the results but don't fail the run. GitHub Actions runs both on every push and pull request.
 
 ## Using the generated files
 
