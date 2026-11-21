@@ -17,10 +17,15 @@ const SCRIPTS = ['js/lib/zip.js', 'js/lib/ico.js', 'js/draw.js', 'js/outputs.js'
 /**
  * @param {object} [options]
  * @param {Date} [options.now]  freeze `new Date()` inside the scripts at this moment
+ * @param {boolean} [options.withoutSegmenter]  remove Intl.Segmenter, like a browser that doesn't have it
  * @returns {{ Zip: any, Ico: any, Draw: any, Outputs: any, context: object }}
  */
 function loadScripts(options = {}) {
-  const context = vm.createContext({ Blob, TextEncoder, TextDecoder, console });
+  const context = vm.createContext({ Blob, TextEncoder, TextDecoder, URL, console });
+
+  if (options.withoutSegmenter) {
+    vm.runInContext('delete Intl.Segmenter;', context);
+  }
 
   if (options.now) {
     context.__FIXED_NOW__ = options.now.getTime();

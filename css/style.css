@@ -23,6 +23,7 @@
   --tab-a-fg: #171717;
   --tab-b-bg: #333333;
   --tab-b-fg: #ededed;
+  --swatch-line: #8f8f8f;  /* edge around color swatches, so white shows on white (3.2:1 on white) */
   --shadow-color: 0 0 0;   /* RGB channels for all shadows */
   --shadow: 0 1px 2px rgb(var(--shadow-color) / 0.05), 0 4px 16px rgb(var(--shadow-color) / 0.06);
   --shadow-lift: 0 2px 4px rgb(var(--shadow-color) / 0.07), 0 12px 32px rgb(var(--shadow-color) / 0.12);
@@ -52,6 +53,7 @@
     --glow: rgb(255 255 255 / 0.06);
     --check-a: #1a1a1a;
     --check-b: #262626;
+    --swatch-line: #6b6b6b; /* so black shows on black (3.9:1 on #000, 3.7:1 on panels) */
     --shadow-color: 0 0 0;
     --shadow: 0 1px 2px rgb(var(--shadow-color) / 0.5), 0 4px 16px rgb(var(--shadow-color) / 0.5);
     --shadow-lift: 0 2px 4px rgb(var(--shadow-color) / 0.6), 0 12px 32px rgb(var(--shadow-color) / 0.7);
@@ -172,6 +174,22 @@ body::before {
 .check { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; cursor: pointer; min-height: 32px; }
 .check input { accent-color: var(--accent); width: 16px; height: 16px; margin: 0; cursor: pointer; }
 .hint { margin: 0; font-size: 12px; color: var(--muted); }
+/* A field with a status line under it. The line stays in the page while empty, so screen readers announce changes. */
+.field { display: flex; flex-direction: column; }
+.note-line:not(:empty) { margin-top: 6px; }
+.panel-head + .note-line:not(:empty) { margin: -4px 0 10px; }
+.snippet-hint { margin-top: 14px; }
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
 .hint code { font-family: var(--font-code); }
 /* Errors: no color, so they stand out with weight, an underline and a warning sign. */
 .hint.err {
@@ -215,8 +233,8 @@ input[type="color"] {
 }
 input[type="color"]:hover:not(:disabled) { transform: scale(1.06); border-color: var(--fg); }
 input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
-input[type="color"]::-webkit-color-swatch { border: 0; border-radius: 5px; }
-input[type="color"]::-moz-color-swatch { border: 0; border-radius: 5px; }
+input[type="color"]::-webkit-color-swatch { border: 1px solid var(--swatch-line); border-radius: 5px; }
+input[type="color"]::-moz-color-swatch { border: 1px solid var(--swatch-line); border-radius: 5px; }
 input[type="color"]:disabled { opacity: 0.35; cursor: not-allowed; }
 
 /* Range: custom track with a filled part. JS sets --fill on each slider. */
@@ -284,7 +302,8 @@ button:focus-visible, select:focus-visible, input:focus-visible, pre:focus-visib
   outline: 2px solid var(--ring);
   outline-offset: 2px;
 }
-button:disabled { opacity: 0.6; cursor: progress; }
+button:disabled { opacity: 0.6; cursor: not-allowed; }
+.btn.busy:disabled { cursor: progress; }
 
 .btn {
   overflow: hidden;

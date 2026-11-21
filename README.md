@@ -6,7 +6,7 @@ A favicon generator built with plain HTML, CSS and JavaScript. Make an icon from
 
 ## Features
 
-- **Two sources:** type a letter, word or emoji, or upload an image (PNG, JPG, SVG, WebP)
+- **Two sources:** type up to 3 letters or emoji, or upload an image (PNG, JPG, SVG, WebP)
 - **Design controls:** font, bold, text size and color, background color, transparent background and corner radius
 - **Live preview:** browser tab mockups (light and dark) and the icon at 16, 32, 48, 180 and 512 px
 - **All the files you need:**
@@ -16,7 +16,7 @@ A favicon generator built with plain HTML, CSS and JavaScript. Make an icon from
   - `android-chrome-192x192.png` and `android-chrome-512x512.png`
   - `site.webmanifest`
 - **Download one file or everything** as a single `favicons.zip`
-- **Ready-to-paste HTML** for the `<head>` of your site
+- **Ready-to-paste HTML** for the `<head>` of your site, with paths for the folder your files go in
 - Light and dark theme that follows your system setting
 
 ## Project structure
@@ -31,7 +31,7 @@ A favicon generator built with plain HTML, CSS and JavaScript. Make an icon from
 │   │   ├── zip.js      # ZIP archive builder (no compression, no library)
 │   │   └── ico.js      # ICO builder that packs PNG images
 │   ├── draw.js         # Draws the icon on a canvas from the current settings
-│   ├── outputs.js      # List of generated files, manifest and HTML snippet
+│   ├── outputs.js      # Generated files, manifest, HTML snippet, text and path helpers
 │   └── app.js          # Page UI: form, previews, downloads
 ├── tests/
 │   ├── helpers/        # Loads the scripts in Node, file format readers, browser setup
@@ -78,19 +78,20 @@ Known bugs are recorded as todo tests: they show in the results but don't fail t
 
 ## Using the generated files
 
-1. Click **Download all (.zip)** and unzip it.
-2. Copy the files into the root folder of your website.
-3. Paste this into the `<head>` of every page:
+1. In **Where will the files go?**, enter the folder on your site that will hold the files. Leave it as `/` for the root of your site. For a GitHub Pages project site, use `/your-repo-name/`. Slashes at either end are optional.
+2. Click **Download all (.zip)** and unzip it.
+3. Copy the files into that folder.
+4. Click **Copy** and paste the HTML into the `<head>` of every page. For the site root it looks like this:
 
 ```html
-<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48">
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="manifest" href="/site.webmanifest">
 ```
 
-If your site lives in a subfolder (for example GitHub Pages at `/<your-repo>/`), remove the leading `/` from each path, and from the two `src` paths in `site.webmanifest`.
+The icon paths inside `site.webmanifest` are relative to the manifest, so they work in any folder without changes.
 
 ## How it works
 
@@ -101,7 +102,7 @@ If your site lives in a subfolder (for example GitHub Pages at `/<your-repo>/`),
 
 ## Tips
 
-- Use one or two characters. Longer text becomes hard to read at 16 px.
+- Use one or two characters. The text box holds up to 3, because more doesn't read at 16 px. An emoji, a flag or an accented letter counts as one.
 - Pick high contrast between the text and the background.
 - For an image, a simple square logo with a bit of padding works best.
 

@@ -4,6 +4,8 @@
 
   const PREVIEW_SIZES = [16, 32, 48, 180, 512];
   const THUMB_SIZE = 80;
+  const TEXT_LIMIT_NOTE = 'Up to ' + Outputs.TEXT_MAX + ' characters fit in a favicon.';
+  const NO_IMAGE_NOTE = 'Choose an image first.';
 
   /* ---------- Elements and state ---------- */
   const $ = (id) => document.getElementById(id);
@@ -11,27 +13,31 @@
   const el = {
     modeText: $('modeText'), modeImage: $('modeImage'),
     textPanel: $('textPanel'), imagePanel: $('imagePanel'),
-    text: $('text'), font: $('font'), bold: $('bold'), textScale: $('textScale'), textScaleOut: $('textScaleOut'), fg: $('fg'),
+    text: $('text'), textCount: $('textCount'), textNote: $('textNote'),
+    font: $('font'), bold: $('bold'), textScale: $('textScale'), textScaleOut: $('textScaleOut'), fg: $('fg'),
     file: $('file'), drop: $('drop'), dropText: $('dropText'), fileNote: $('fileNote'), fit: $('fit'), pad: $('pad'), padOut: $('padOut'),
     bg: $('bg'), transparent: $('transparent'), radius: $('radius'), radiusOut: $('radiusOut'), appName: $('appName'),
     heroIcon: $('heroIcon'), tabA: $('tabA'), tabB: $('tabB'), tabTitleA: $('tabTitleA'), tabTitleB: $('tabTitleB'),
-    sizes: $('sizes'), files: $('files'), zip: $('zip'), snippet: $('snippet'), copySnippet: $('copySnippet')
+    sizes: $('sizes'), files: $('files'), filesNote: $('filesNote'), zip: $('zip'),
+    basePath: $('basePath'), snippet: $('snippet'), copySnippet: $('copySnippet')
   };
 
   const RANGES = ['textScale', 'pad', 'radius'];
-  const INPUTS = ['text', 'font', 'bold', 'textScale', 'fg', 'fit', 'pad', 'bg', 'transparent', 'radius', 'appName'];
+  const INPUTS = ['text', 'font', 'bold', 'textScale', 'fg', 'fit', 'pad', 'bg', 'transparent', 'radius', 'appName', 'basePath'];
 
   let mode = 'text';
-  let image = null; // loaded HTMLImageElement for image mode
+  let image = null;    // loaded HTMLImageElement for image mode
+  let imageUrl = null; // its object URL, released when another image replaces it
 
   const previews = []; // { canvas, size }
   const thumbs = [];   // { canvas, size, apple }
+  const downloads = []; // { button, busy, note } for every download button
 
   function readSettings() {
     return {
       mode,
       image,
-      text: Array.from(el.text.value).slice(0, 3).join(''),
+      text: Outputs.clip(el.text.value, Outputs.TEXT_MAX),
       font: el.font.value,
       bold: el.bold.checked,
       textScale: Number(el.textScale.value),
@@ -41,7 +47,8 @@
       radius: Number(el.radius.value),
       fit: el.fit.value,
       pad: Number(el.pad.value),
-      appName: el.appName.value.trim() || 'My App'
+      appName: el.appName.value.trim() || 'My App',
+      basePath: el.basePath.value
     };
   }
 
@@ -57,9 +64,38 @@
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
+  /** Set a status line. Errors are styled by .err; an empty string clears it. */
+  function setStatus(node, text, isError) {
+    node.textContent = text;
+    node.classList.toggle('err', !!isError && !!text);
+  }
+
   function setNote(text, isError) {
-    el.fileNote.textContent = text;
-    el.fileNote.className = isError ? 'hint err' : 'hint';
+    setStatus(el.fileNote, text, isError);
+  }
+
+  const failMessage = (name, err) =>
+    'Could not create ' + name + (err && err.message ? ': ' + err.message : '') + '. Try again.';
+
+  /* ---------- Text limit ---------- */
+  let lastText = el.text.value;
+  let lastSelection = [lastText.length, lastText.length];
+
+  /** Keep the text box at TEXT_MAX visible characters without ever splitting one. */
+  function enforceTextLimit() {
+    const max = Outputs.TEXT_MAX;
+    const result = Outputs.limitEdit(lastText, lastSelection[0], lastSelection[1], el.text.value, max);
+    const over = result.over;
+    if (over) {
+      el.text.value = result.value;
+      el.text.setSelectionRange(result.caret, result.caret);
+    }
+    lastText = el.text.value;
+    lastSelection = [el.text.selectionEnd, el.text.selectionEnd];
+    const count = Outputs.graphemes(lastText).length;
+    el.textCount.textContent = count + ' / ' + max;
+    if (over) setStatus(el.textNote, TEXT_LIMIT_NOTE, false);
+    else if (count < max) setStatus(el.textNote, '', false);
   }
 
   /* ---------- Page build ---------- */
@@ -79,8 +115,23 @@
     });
   }
 
+  /** Run a download: busy state while it builds, and a message near the button if it fails. */
+  async function runDownload(entry, name, buildBlob) {
+    entry.busy = true;
+    setStatus(entry.note, '', false);
+    updateDownloads();
+    try {
+      saveBlob(await buildBlob(), name);
+    } catch (err) {
+      setStatus(entry.note, failMessage(name, err), true);
+    } finally {
+      entry.busy = false;
+      updateDownloads();
+    }
+  }
+
   function buildFileList() {
-    Outputs.FILES.forEach((file) => {
+    Outputs.FILES.forEach((file, i) => {
       const li = document.createElement('li');
 
       let lead;
@@ -103,20 +154,32 @@
       const note = document.createElement('div');
       note.className = 'note';
       note.textContent = file.dims + ' · ' + file.note;
-      meta.append(name, note);
+      const status = document.createElement('p');
+      status.className = 'hint note-line';
+      status.id = 'fileStatus' + i;
+      status.setAttribute('role', 'status');
+      meta.append(name, note, status);
 
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.textContent = 'Download';
       btn.setAttribute('aria-label', 'Download ' + file.name);
-      btn.addEventListener('click', async () => {
-        btn.disabled = true;
-        try { saveBlob(await Outputs.build(file, readSettings()), file.name); } finally { btn.disabled = false; }
-      });
+      btn.setAttribute('aria-describedby', status.id + ' filesNote');
+      const entry = { button: btn, busy: false, note: status };
+      downloads.push(entry);
+      btn.addEventListener('click', () => runDownload(entry, file.name, () => Outputs.build(file, readSettings())));
 
       li.append(lead, meta, btn);
       el.files.appendChild(li);
     });
+  }
+
+  /** Enable or disable the Download buttons: busy while building, and off in image mode with no image. */
+  function updateDownloads() {
+    const needsImage = mode === 'image' && !image;
+    downloads.forEach((d) => { d.button.disabled = needsImage || d.busy; });
+    if (needsImage) setStatus(el.filesNote, NO_IMAGE_NOTE, false);
+    else if (el.filesNote.textContent === NO_IMAGE_NOTE) setStatus(el.filesNote, '', false);
   }
 
   /* ---------- Refresh ---------- */
@@ -144,6 +207,7 @@
       el.padOut.textContent = s.pad + '%';
       el.radiusOut.textContent = s.radius + '%';
       el.bg.disabled = s.transparent;
+      el.snippet.querySelector('code').textContent = Outputs.snippet(s);
     });
   }
 
@@ -153,6 +217,7 @@
     el.modeImage.setAttribute('aria-pressed', String(next === 'image'));
     el.textPanel.hidden = next !== 'text';
     el.imagePanel.hidden = next !== 'image';
+    updateDownloads();
     refresh();
   }
 
@@ -166,9 +231,12 @@
     const url = URL.createObjectURL(file);
     const img = new Image();
     img.onload = () => {
+      if (imageUrl) URL.revokeObjectURL(imageUrl);
       image = img;
+      imageUrl = url;
       el.dropText.textContent = file.name;
       setNote((img.naturalWidth || '?') + ' × ' + (img.naturalHeight || '?') + ' px. Choose another image any time.', false);
+      updateDownloads();
       refresh();
     };
     img.onerror = () => {
@@ -183,6 +251,17 @@
     el.modeText.addEventListener('click', () => setMode('text'));
     el.modeImage.addEventListener('click', () => setMode('image'));
 
+    // Remember the text and caret before each edit, so an edit past the limit can be undone exactly.
+    // While an input method is composing, keep the state from before the composition started.
+    const remember = () => {
+      lastText = el.text.value;
+      lastSelection = [el.text.selectionStart, el.text.selectionEnd];
+    };
+    el.text.addEventListener('beforeinput', (e) => { if (!e.isComposing) remember(); });
+    el.text.addEventListener('compositionstart', remember);
+    el.text.addEventListener('input', (e) => { if (!e.isComposing) enforceTextLimit(); });
+    el.text.addEventListener('compositionend', enforceTextLimit);
+
     INPUTS.forEach((k) => {
       el[k].addEventListener('input', refresh);
       el[k].addEventListener('change', refresh);
@@ -193,18 +272,15 @@
     ['dragleave', 'drop'].forEach((t) => el.drop.addEventListener(t, (e) => { e.preventDefault(); el.drop.classList.remove('over'); }));
     el.drop.addEventListener('drop', (e) => { loadFile(e.dataTransfer && e.dataTransfer.files[0]); });
 
+    const zipEntry = { button: el.zip, busy: false, note: el.filesNote };
+    downloads.push(zipEntry);
     el.zip.addEventListener('click', async () => {
-      el.zip.disabled = true;
       const label = el.zip.textContent;
       el.zip.textContent = 'Preparing…';
       el.zip.classList.add('busy');
-      try {
-        saveBlob(await Outputs.buildZip(readSettings()), 'favicons.zip');
-      } finally {
-        el.zip.classList.remove('busy');
-        el.zip.disabled = false;
-        el.zip.textContent = label;
-      }
+      await runDownload(zipEntry, 'favicons.zip', () => Outputs.buildZip(readSettings()));
+      el.zip.classList.remove('busy');
+      el.zip.textContent = label;
     });
 
     el.copySnippet.addEventListener('click', () => {
@@ -224,15 +300,20 @@
         sel.addRange(r);
         flash('Press Ctrl/Cmd + C', 2500);
       };
-      try { navigator.clipboard.writeText(Outputs.SNIPPET).then(() => flash('Copied', 1500, true), fallback); } catch (e) { fallback(); }
+      const text = Outputs.snippet(readSettings());
+      el.snippet.querySelector('code').textContent = text;
+      try { navigator.clipboard.writeText(text).then(() => flash('Copied', 1500, true), fallback); } catch (e) { fallback(); }
     });
   }
 
   /* ---------- Start ---------- */
   buildPreviewList();
   buildFileList();
-  el.snippet.querySelector('code').textContent = Outputs.SNIPPET;
   bindEvents();
+  enforceTextLimit();
+  setStatus(el.textNote, '', false);
+  updateDownloads();
+  el.snippet.querySelector('code').textContent = Outputs.snippet(readSettings());
   refresh();
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(refresh);
 })();

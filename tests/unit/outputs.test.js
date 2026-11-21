@@ -4,7 +4,6 @@ const assert = require('node:assert/strict');
 const { loadScripts } = require('../helpers/load');
 
 const { Outputs } = loadScripts();
-const { SNIPPET } = Outputs;
 // FILES is plain data. Copy it out of the vm realm so deepStrictEqual sees ordinary arrays.
 const FILES = structuredClone(Outputs.FILES);
 const NAMES = new Set(FILES.map((f) => f.name));
@@ -12,7 +11,7 @@ const byName = (name) => FILES.find((f) => f.name === name);
 
 const SETTINGS = {
   mode: 'text', image: null, text: 'F', font: 'sans', bold: true, textScale: 70,
-  fg: '#ffffff', bg: '#0b7a75', transparent: false, radius: 22, fit: 'contain', pad: 0, appName: 'My App'
+  fg: '#ffffff', bg: '#0b7a75', transparent: false, radius: 22, fit: 'contain', pad: 0, appName: 'My App', basePath: '/'
 };
 
 async function manifest(overrides = {}) {
@@ -21,9 +20,9 @@ async function manifest(overrides = {}) {
   return { blob, text: await blob.text(), json: JSON.parse(await blob.text()) };
 }
 
-/** href values in the HTML snippet, keyed by rel. */
-function snippetLinks() {
-  return SNIPPET.split('\n').map((line) => ({
+/** Attributes of each <link> in the HTML snippet. */
+function snippetLinks(overrides = {}) {
+  return Outputs.snippet({ ...SETTINGS, ...overrides }).split('\n').map((line) => ({
     rel: /rel="([^"]+)"/.exec(line)[1],
     href: /href="([^"]+)"/.exec(line)[1],
     sizes: (/sizes="([^"]+)"/.exec(line) || [])[1],
@@ -31,8 +30,8 @@ function snippetLinks() {
   }));
 }
 
-/** Strip a leading slash so both "/a.png" and "a.png" map to a file name. */
-const fileOf = (href) => href.replace(/^\//, '');
+/** The file name at the end of a path. */
+const fileOf = (href) => href.split('/').pop();
 
 /* ---------- FILES ---------- */
 
@@ -80,6 +79,47 @@ test('every file has a note and a dims label', () => {
   }
 });
 
+/* ---------- Where the files go ---------- */
+
+test('basePath turns any spelling of a folder into one clean form', async (t) => {
+  const cases = [
+    ['/', '/'],
+    ['', '/'],
+    ['   ', '/'],
+    [undefined, '/'],
+    ['//', '/'],
+    ['.', '/'],
+    ['./', '/'],
+    ['favicon-maker', '/favicon-maker/'],
+    ['/favicon-maker', '/favicon-maker/'],
+    ['favicon-maker/', '/favicon-maker/'],
+    ['/favicon-maker/', '/favicon-maker/'],
+    ['  /favicon-maker/  ', '/favicon-maker/'],
+    ['//favicon-maker//', '/favicon-maker/'],
+    ['a//b///c', '/a/b/c/'],
+    ['\\assets\\icons\\', '/assets/icons/'],
+    ['./static/./icons', '/static/icons/'],
+    ['my site', '/my%20site/'],
+    ['my%20site', '/my%20site/'],
+    ['café', '/caf%C3%A9/'],
+    ['a"b<c>', '/a%22b%3Cc%3E/'],
+    ['/icons/?v=2#top', '/icons/'],
+    ['https://example.com', 'https://example.com/'],
+    ['https://example.com/app', 'https://example.com/app/'],
+    ['HTTPS://Example.com/app/', 'https://example.com/app/'],
+    ['http://localhost:8080//x/', 'http://localhost:8080/x/']
+  ];
+  for (const [input, expected] of cases) {
+    await t.test(JSON.stringify(input), () => assert.equal(Outputs.basePath(input), expected));
+  }
+});
+
+test('basePath is stable: cleaning a clean path changes nothing', () => {
+  for (const input of ['/', '/a/', '/a/b/', '/my%20site/', 'https://example.com/app/']) {
+    assert.equal(Outputs.basePath(Outputs.basePath(input)), Outputs.basePath(input));
+  }
+});
+
 /* ---------- HTML snippet ---------- */
 
 test('the HTML snippet only refers to files in FILES', () => {
@@ -97,12 +137,42 @@ test('the HTML snippet sizes match the files', () => {
     const f = byName(fileOf(link.href));
     if (f.kind === 'png' && link.sizes) assert.equal(link.sizes, `${f.size}x${f.size}`, link.href);
     if (f.kind === 'png' && link.type) assert.equal(link.type, 'image/png', link.href);
-    if (f.kind === 'ico') assert.ok(f.sizes.map((z) => `${z}x${z}`).includes(link.sizes), link.href);
   }
 });
 
-test('the HTML snippet uses relative paths', { todo: 'paths start with "/", which breaks sites in a subfolder such as GitHub Pages' }, () => {
-  for (const link of snippetLinks()) assert.ok(!link.href.startsWith('/'), link.href);
+test('the HTML snippet lists every size inside the ICO', () => {
+  const link = snippetLinks().find((l) => fileOf(l.href) === 'favicon.ico');
+  assert.equal(link.sizes, byName('favicon.ico').sizes.map((z) => `${z}x${z}`).join(' '));
+  assert.equal(link.sizes, '16x16 32x32 48x48');
+});
+
+test('the HTML snippet uses the site root by default', () => {
+  for (const link of snippetLinks()) assert.match(link.href, /^\/[^/]+$/, link.href);
+  assert.equal(Outputs.snippet({ ...SETTINGS, basePath: undefined }), Outputs.snippet(SETTINGS));
+});
+
+test('the HTML snippet paths follow the folder setting', async (t) => {
+  const cases = {
+    'favicon-maker': '/favicon-maker/',
+    '/favicon-maker/': '/favicon-maker/',
+    'a/b': '/a/b/',
+    'https://cdn.example.com/icons': 'https://cdn.example.com/icons/'
+  };
+  for (const [basePath, prefix] of Object.entries(cases)) {
+    await t.test(basePath, () => {
+      for (const link of snippetLinks({ basePath })) {
+        assert.ok(link.href.startsWith(prefix), link.href);
+        assert.ok(NAMES.has(link.href.slice(prefix.length)), link.href);
+      }
+    });
+  }
+});
+
+test('the HTML snippet escapes nothing it should not and breaks no attribute', () => {
+  const text = Outputs.snippet({ ...SETTINGS, basePath: 'x" onload="alert(1)' });
+  assert.equal(text.split('\n').length, 5);
+  for (const line of text.split('\n')) assert.equal(line.split('"').length % 2, 1, line);
+  assert.ok(!text.includes('onload="'));
 });
 
 /* ---------- Manifest ---------- */
@@ -132,14 +202,13 @@ test('the manifest uses white when the background is transparent', async () => {
 test('the manifest short_name is at most 12 characters', async () => {
   const { json } = await manifest({ appName: 'A very long application name' });
   assert.equal(json.short_name, 'A very long ');
-  assert.ok(json.short_name.length <= 12);
 });
 
 test('the manifest only refers to files in FILES, with matching sizes', async () => {
   const { json } = await manifest();
   assert.ok(json.icons.length >= 2);
   for (const icon of json.icons) {
-    const f = byName(fileOf(icon.src));
+    const f = byName(icon.src);
     assert.ok(f, `${icon.src} is in FILES`);
     assert.equal(icon.sizes, `${f.size}x${f.size}`, icon.src);
     assert.equal(icon.type, 'image/png', icon.src);
@@ -147,9 +216,16 @@ test('the manifest only refers to files in FILES, with matching sizes', async ()
   assert.deepEqual(json.icons.map((i) => i.sizes).sort(), ['192x192', '512x512']);
 });
 
-test('the manifest uses relative icon paths', { todo: 'icon src paths start with "/", which breaks sites in a subfolder such as GitHub Pages' }, async () => {
-  const { json } = await manifest();
-  for (const icon of json.icons) assert.ok(!icon.src.startsWith('/'), icon.src);
+test('the manifest uses icon paths relative to the manifest file', async () => {
+  for (const basePath of ['/', '/favicon-maker/']) {
+    const { json } = await manifest({ basePath });
+    for (const icon of json.icons) {
+      assert.ok(!icon.src.includes('/'), icon.src);
+      // Resolved against the manifest's own URL, the icon sits next to it.
+      const manifestUrl = new URL(`https://example.com${Outputs.basePath(basePath)}site.webmanifest`);
+      assert.equal(new URL(icon.src, manifestUrl).href, `https://example.com${Outputs.basePath(basePath)}${icon.src}`);
+    }
+  }
 });
 
 test('the manifest has a maskable icon', { todo: 'no icon has purpose "maskable", so Android crops the regular icon' }, async () => {
@@ -157,20 +233,21 @@ test('the manifest has a maskable icon', { todo: 'no icon has purpose "maskable"
   assert.ok(json.icons.some((i) => (i.purpose || '').split(/\s+/).includes('maskable')));
 });
 
-test('the manifest short_name never splits an emoji', { todo: 'short_name uses slice(0, 12), which can cut a character in half' }, async (t) => {
+test('the manifest short_name never splits an emoji', async (t) => {
+  const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
   const cases = {
-    'emoji across the cut (surrogate pair)': 'Hello World😀',
-    'emoji with skin tone across the cut': 'Hello Worl👍🏽',
-    'flag across the cut': 'Hello Worl🇵🇰',
-    'family emoji across the cut': 'Hello Wo👨‍👩‍👧'
+    'emoji across the cut (surrogate pair)': ['Hello World😀', 'Hello World😀'],
+    'emoji with skin tone across the cut': ['Hello Worl👍🏽!', 'Hello Worl👍🏽!'],
+    'flag across the cut': ['Hello Worl🇵🇰!!', 'Hello Worl🇵🇰!'],
+    'family emoji across the cut': ['Hello Wo👨‍👩‍👧 and more', 'Hello Wo👨‍👩‍👧 an'],
+    'combining accent across the cut': ['Hello Worlé!', 'Hello Worlé!']
   };
-  for (const [label, appName] of Object.entries(cases)) {
+  for (const [label, [appName, expected]] of Object.entries(cases)) {
     await t.test(label, async () => {
       const { json } = await manifest({ appName });
+      assert.equal(json.short_name, expected);
       assert.ok(json.short_name.isWellFormed(), 'no lone surrogate');
-      const whole = [...new Intl.Segmenter('en', { granularity: 'grapheme' }).segment(appName)].map((s) => s.segment);
-      const kept = [...new Intl.Segmenter('en', { granularity: 'grapheme' }).segment(json.short_name)].map((s) => s.segment);
-      assert.deepEqual(kept, whole.slice(0, kept.length), 'only whole characters are kept');
+      assert.ok([...segmenter.segment(json.short_name)].length <= 12, 'at most 12 visible characters');
     });
   }
 });
