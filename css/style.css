@@ -170,6 +170,7 @@ body::before {
   text-align: center;
   font-variant-numeric: tabular-nums;
 }
+.group-inner { display: flex; flex-direction: column; gap: 14px; }
 .two { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 12px; }
 .color { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; font-weight: 500; }
 .check { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; cursor: pointer; min-height: 32px; }

@@ -39,7 +39,7 @@ test('FILES has the expected files with unique names', () => {
   assert.equal(NAMES.size, FILES.length, 'names are unique');
   assert.deepEqual([...NAMES].sort(), [
     'android-chrome-192x192.png', 'android-chrome-512x512.png', 'apple-touch-icon.png',
-    'favicon-16x16.png', 'favicon-32x32.png', 'favicon.ico',
+    'favicon-16x16.png', 'favicon-32x32.png', 'favicon.ico', 'favicon.svg',
     'maskable-icon-192x192.png', 'maskable-icon-512x512.png', 'site.webmanifest'
   ]);
 });
@@ -47,7 +47,7 @@ test('FILES has the expected files with unique names', () => {
 test('each file kind matches its extension', () => {
   for (const f of FILES) {
     const ext = f.name.split('.').pop();
-    assert.equal({ png: 'png', ico: 'ico', webmanifest: 'manifest' }[ext], f.kind, f.name);
+    assert.equal({ png: 'png', ico: 'ico', svg: 'svg', webmanifest: 'manifest' }[ext], f.kind, f.name);
   }
 });
 
@@ -143,8 +143,8 @@ test('the HTML snippet sizes match the files', () => {
   }
 });
 
-test('the HTML snippet lists every size inside the ICO', () => {
-  const link = snippetLinks().find((l) => fileOf(l.href) === 'favicon.ico');
+test('without favicon.svg, the HTML snippet lists every size inside the ICO', () => {
+  const link = snippetLinks({ text: '😀' }).find((l) => fileOf(l.href) === 'favicon.ico');
   assert.equal(link.sizes, byName('favicon.ico').sizes.map((z) => `${z}x${z}`).join(' '));
   assert.equal(link.sizes, '16x16 32x32 48x48');
 });
@@ -173,7 +173,7 @@ test('the HTML snippet paths follow the folder setting', async (t) => {
 
 test('the HTML snippet escapes nothing it should not and breaks no attribute', () => {
   const text = Outputs.snippet({ ...SETTINGS, basePath: 'x" onload="alert(1)' });
-  assert.equal(text.split('\n').length, 5);
+  assert.equal(text.split('\n').length, 6);
   for (const line of text.split('\n')) assert.equal(line.split('"').length % 2, 1, line);
   assert.ok(!text.includes('onload="'));
 });

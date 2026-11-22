@@ -18,6 +18,10 @@ const Fonts = (() => {
         "variable": "sans/inter-variable.woff2"
       },
       "preview": "sans/inter-name.woff2",
+      "glyphs": {
+        "400": "sans/inter-400.glyphs.js",
+        "700": "sans/inter-700.glyphs.js"
+      },
       "ranges": "U+0000,U+0020-007E,U+00A0-00AC,U+00AE-0148,U+014A-01C3,U+01C5-0254,U+0256-027B,U+027E-0284,U+0286-0290,U+0292-02A4,U+02A6-02CC,U+02CE-02D7,U+02DA,U+02DC-0304,U+0306-030A,U+030C,U+030F,U+0313,U+0315,U+031B,U+0323,U+0326-0328,U+032C,U+0337-0338,U+0342-0343,U+0346-036F,U+1D00,U+1D0D,U+1D1B,U+1D43,U+1D47-1D49,U+1D4D,U+1D4F-1D50,U+1D52,U+1D56-1D58,U+1D5B,U+1D62-1D65,U+1D9C,U+1DA0,U+1DBB,U+1DBF,U+1E00-1E9B,U+1E9D-1E9F,U+1EF2-1EFF,U+2000-200B,U+2010-2027,U+202F-2055,U+2057,U+205F,U+20A0-20AF,U+20B1-20B5,U+20B8-20BA,U+20BC-20BF,U+2113,U+2122,U+2191,U+2193,U+2212,U+2C7C,U+2C7F,U+A7FF,U+FEFF"
     },
     "rounded": {
@@ -33,6 +37,10 @@ const Fonts = (() => {
         "variable": "rounded/nunito-variable.woff2"
       },
       "preview": "rounded/nunito-name.woff2",
+      "glyphs": {
+        "400": "rounded/nunito-400.glyphs.js",
+        "700": "rounded/nunito-700.glyphs.js"
+      },
       "ranges": "U+0000,U+000D,U+0020-007E,U+00A0-0132,U+0134-017E,U+0181,U+018A,U+018F,U+0192,U+01A0-01A1,U+01AF-01B0,U+01B3-01B4,U+01C4-01CE,U+01D4,U+01E5-01E7,U+01E9-01EB,U+01EF,U+01FA-021B,U+021F,U+0226-0228,U+022A-022D,U+0230-0233,U+0237,U+0253,U+0257,U+0259,U+0292,U+02B9-02BC,U+02BE-02BF,U+02C6-02CC,U+02DA,U+02DC-02DD,U+0300-0304,U+0306-030C,U+030F,U+0311-0312,U+031B,U+0323-0324,U+0326-0328,U+032E,U+0331,U+0335,U+0337-0338,U+1E08-1E09,U+1E0C-1E0F,U+1E14-1E17,U+1E1C-1E1D,U+1E20-1E21,U+1E24-1E25,U+1E2A-1E2B,U+1E2E-1E2F,U+1E36-1E37,U+1E3A-1E3B,U+1E42-1E49,U+1E4C-1E53,U+1E5A-1E5B,U+1E5E-1E69,U+1E6C-1E6F,U+1E78-1E7B,U+1E80-1E85,U+1E8E-1E8F,U+1E92-1E93,U+1E97,U+1E9E,U+1EF2-1EF9,U+2007-200B,U+2010,U+2012-2015,U+2018-201A,U+201C-201E,U+2020-2022,U+2026,U+2030,U+2032-2033,U+2039-203A,U+2044,U+2052,U+20A1,U+20A3-20A4,U+20A6-20A7,U+20A9,U+20AB-20AE,U+20B1-20B2,U+20B4-20B5,U+20B8-20BA,U+20BC-20BD,U+2113,U+2122,U+2212,U+2215"
     },
     "serif": {
@@ -48,6 +56,10 @@ const Fonts = (() => {
         "variable": "serif/sourceserif4-variable.woff2"
       },
       "preview": "serif/sourceserif4-name.woff2",
+      "glyphs": {
+        "400": "serif/sourceserif4-400.glyphs.js",
+        "700": "serif/sourceserif4-700.glyphs.js"
+      },
       "ranges": "U+0020-007E,U+00A0-012B,U+012E-0131,U+0134-0165,U+0168-017F,U+018F,U+0192,U+01A0-01A1,U+01AF-01B0,U+01CD-01DC,U+01E6-01E7,U+01F8-01F9,U+0218-021B,U+0237,U+0251,U+0259,U+0261,U+02B0,U+02B2-02B3,U+02B7-02B8,U+02BB-02BC,U+02BE-02BF,U+02C6-02CC,U+02DA,U+02DC-02DD,U+02E1-02E3,U+0300-0304,U+0306-030C,U+031B,U+0323-0324,U+0326-0329,U+032E,U+0331,U+1D43,U+1D47-1D49,U+1D4D,U+1D4F-1D50,U+1D52,U+1D56-1D58,U+1D5B,U+1D9C,U+1DA0,U+1DBB,U+1E0C-1E0F,U+1E20-1E21,U+1E24-1E25,U+1E2A-1E2B,U+1E36-1E3B,U+1E3E-1E3F,U+1E42-1E49,U+1E5A-1E63,U+1E6C-1E6F,U+1E80-1E85,U+1E8E-1E8F,U+1E92-1E93,U+1E97,U+1E9E,U+1EF2-1EF9,U+2002-2007,U+2009-200B,U+2010,U+2012-2015,U+2018-201A,U+201C-201E,U+2020-2022,U+2025-2026,U+202F-2030,U+2032-2033,U+2039-203A,U+203C,U+2044,U+2047-2049,U+20A1,U+20A4,U+20A6-20A7,U+20A9,U+20AB-20AC,U+20AE,U+20B1-20B2,U+20B4-20B5,U+20B8-20BA,U+20BD,U+20BF,U+2113,U+2122,U+2191,U+2193,U+2212,U+2215"
     },
     "slab": {
@@ -64,6 +76,10 @@ const Fonts = (() => {
         "700": "slab/zillaslab-700.woff2"
       },
       "preview": "slab/zillaslab-name.woff2",
+      "glyphs": {
+        "400": "slab/zillaslab-400.glyphs.js",
+        "700": "slab/zillaslab-700.glyphs.js"
+      },
       "ranges": "U+0020-007E,U+00A0-00AC,U+00AE-0137,U+0139-017E,U+018F,U+0192,U+01C4-01CC,U+01D3-01D4,U+01E2-01E3,U+01F1-01F3,U+01FC-01FF,U+0218-021B,U+0232-0233,U+0237,U+0259,U+02C6-02C7,U+02DA,U+02DC-02DD,U+0323,U+1E46-1E47,U+1E62-1E63,U+1E80-1E85,U+1EF2-1EF3,U+2004,U+2007,U+2009-200B,U+2012-2014,U+2018-201A,U+201C-201E,U+2020-2022,U+2026,U+2030,U+2039-203A,U+203D,U+2044,U+20A1-20AE,U+20B1,U+20B4,U+20B9-20BA,U+20BD,U+2113,U+2122,U+2191,U+2193,U+2212"
     },
     "mono": {
@@ -79,6 +95,10 @@ const Fonts = (() => {
         "variable": "mono/jetbrainsmono-variable.woff2"
       },
       "preview": "mono/jetbrainsmono-name.woff2",
+      "glyphs": {
+        "400": "mono/jetbrainsmono-400.glyphs.js",
+        "700": "mono/jetbrainsmono-700.glyphs.js"
+      },
       "ranges": "U+000D,U+0020-007E,U+00A0-0131,U+0134-017F,U+018F,U+0192,U+01A0-01A1,U+01AF-01B0,U+01CD-01CE,U+01E6-01E7,U+01EA-01EB,U+01F4-01F5,U+01FC-01FF,U+0218-021B,U+0232-0233,U+0237,U+0259,U+02B9-02BA,U+02BC,U+02C6-02C7,U+02C9,U+02DA,U+02DC-02DD,U+02F3,U+02F7,U+0300-0304,U+0306-030C,U+030F,U+0312,U+031B,U+0323,U+0325-0328,U+0336,U+0338,U+1E80-1E85,U+1E9E,U+1EF2-1EF9,U+2010,U+2013-2014,U+2018-201A,U+201C-201E,U+2020-2022,U+2024,U+2026,U+2030,U+2032-2033,U+2039-203A,U+2044,U+20AB-20AC,U+20AE,U+20BD,U+20BF,U+2113,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF"
     },
     "display": {
@@ -93,6 +113,9 @@ const Fonts = (() => {
         "400": "display/anton-400.woff2"
       },
       "preview": "display/anton-name.woff2",
+      "glyphs": {
+        "400": "display/anton-400.glyphs.js"
+      },
       "ranges": "U+0000,U+000D,U+0020-007E,U+00A0-0181,U+0186-018A,U+018E-0194,U+0196-01A1,U+01A4-01A5,U+01A9,U+01AC-01B9,U+01C0-01F5,U+01F8-021B,U+021E-0220,U+0222-0223,U+0226-0233,U+0237,U+023A-023E,U+0241-024F,U+0251,U+0253-0254,U+0256-0257,U+0259,U+025B,U+0260,U+0263,U+0265-0266,U+0268-026C,U+026F,U+0272,U+0275,U+027D-027E,U+0283,U+0288-028C,U+0292,U+0294-0295,U+0298,U+029D,U+02B0,U+02B7,U+02B9-02BC,U+02BE-02C0,U+02C6-02CC,U+02D7,U+02DA,U+02DC-02DD,U+02EE,U+0300-0304,U+0306-030D,U+030F-0313,U+031B,U+0323-0329,U+032D-0332,U+0334-0335,U+0358,U+1D7D,U+1DBB,U+1E00-1E95,U+1E97,U+1E9E,U+1EF2-1EF9,U+2007-200B,U+2010,U+2012-2015,U+2018-201A,U+201C-201E,U+2020-2022,U+2026,U+2030,U+2032-2033,U+2039-203A,U+2044,U+2052,U+20A1,U+20A3-20A4,U+20A6-20A7,U+20A9,U+20AB-20AD,U+20B1-20B2,U+20B5,U+20B9-20BA,U+20BC-20BD,U+2113,U+2122,U+2191,U+2193,U+2212,U+2215,U+2C60-2C66,U+2C6D,U+2C72-2C73,U+A726-A727,U+A740-A741,U+A789-A78D,U+A7A8-A7AA,U+A7AD-A7AE,U+A7B2-A7B9"
     },
     "geometric": {
@@ -109,6 +132,10 @@ const Fonts = (() => {
         "700": "geometric/montserrat-700.woff2"
       },
       "preview": "geometric/montserrat-name.woff2",
+      "glyphs": {
+        "400": "geometric/montserrat-400.glyphs.js",
+        "700": "geometric/montserrat-700.glyphs.js"
+      },
       "ranges": "U+0000,U+000D,U+0020-007E,U+00A0-00AC,U+00AE-0183,U+0186-018C,U+018E-0194,U+0196-01A1,U+01A4-01A6,U+01A9,U+01AC-01B9,U+01C0-01F5,U+01F8-0220,U+0222-0223,U+0226-0233,U+0237,U+023A-023E,U+0241-0251,U+0253-0254,U+0256-0259,U+025B-025C,U+025F-0260,U+0263-0266,U+0268-026C,U+026F,U+0271-0272,U+0274-0275,U+027D-027E,U+0280,U+0283,U+0287-028C,U+028E,U+0292,U+0294-0295,U+0298,U+029D,U+02B0,U+02B7-02C1,U+02C6-02CC,U+02D7,U+02DA,U+02DC-02DD,U+02EC,U+02EE,U+02FB-02FC,U+0300-0304,U+0306-030D,U+030F-0313,U+0315,U+031B,U+0320,U+0323-0329,U+032D-0332,U+0334-0338,U+034F,U+0358,U+035C-035D,U+035F,U+0361-0362,U+1D3A,U+1D43,U+1D49,U+1D4B,U+1D52-1D53,U+1D58,U+1D5B,U+1D7B,U+1D7D-1D7E,U+1D91,U+1DA4,U+1DB6,U+1DBB,U+1DBF,U+1E00-1E9B,U+1E9E,U+1EF2-1EF9,U+2007-200B,U+2010,U+2012-2015,U+2018-201A,U+201C-201E,U+2020-2022,U+2026,U+2030,U+2032-2033,U+2039-203A,U+2044,U+2052,U+20A1,U+20A3-20A4,U+20A6-20A7,U+20A9,U+20AB-20AE,U+20B1-20B2,U+20B4-20B5,U+20B8-20BA,U+20BC-20BD,U+20BF,U+2113,U+2122,U+2191,U+2193,U+2212,U+2215,U+2C60-2C66,U+2C6D-2C6F,U+2C72-2C73,U+A726-A727,U+A740-A741,U+A789-A78D,U+A792-A793,U+A7A8-A7AB,U+A7AD-A7AE,U+A7B1-A7B9,U+A7C7-A7C8,U+A7CB-A7CD,U+A7DA-A7DC"
     },
     "handwritten": {
@@ -124,6 +151,10 @@ const Fonts = (() => {
         "variable": "handwritten/caveat-variable.woff2"
       },
       "preview": "handwritten/caveat-name.woff2",
+      "glyphs": {
+        "400": "handwritten/caveat-400.glyphs.js",
+        "700": "handwritten/caveat-700.glyphs.js"
+      },
       "ranges": "U+0000,U+000D,U+0020-007E,U+00A0-017E,U+018F,U+0192,U+01C4-01CC,U+01D4,U+01E5,U+01E7,U+01E9-01EB,U+01EF,U+01F1-01F5,U+01FA-021B,U+021F,U+0237,U+0259,U+0292,U+02BC,U+02C6-02C7,U+02C9,U+02DA,U+02DC-02DD,U+0300-0304,U+0306-0308,U+030A-030C,U+030F,U+0311,U+0323,U+0326-0328,U+0335,U+1E0C-1E0D,U+1E24-1E25,U+1E44-1E45,U+1E5A-1E5B,U+1E62-1E63,U+1E6C-1E6D,U+1E80-1E85,U+1E92-1E93,U+1EF2-1EF3,U+1EF8-1EF9,U+2010,U+2013-2014,U+2018-201A,U+201C-201E,U+2020-2022,U+2026,U+2030,U+2032-2033,U+2039-203A,U+2044,U+2052,U+20A1,U+20A3-20A4,U+20A6,U+20A9,U+20AC,U+20AE,U+20B4,U+20B8-20BA,U+20BD,U+2122,U+2212,U+2215"
     }
   };
@@ -325,9 +356,56 @@ const Fonts = (() => {
     return out;
   }
 
+  /* ---------- Glyph outlines, for favicon.svg ---------- */
+
+  const glyphStore = {};
+  const glyphLoads = {};
+
+  /** Called by the glyph data files (assets/fonts/<style>/<font>-<weight>.glyphs.js). */
+  function addGlyphs(name, w, data) {
+    glyphStore[key(name) + '|' + w] = data;
+  }
+
+  /** The loaded outlines { upm, glyphs: { codePoint: path } } of a font and weight, or null. */
+  function glyphs(name, w) {
+    return glyphStore[key(name) + '|' + w] || null;
+  }
+
+  /** Path of the glyph data file for a font and weight. */
+  function glyphFile(name, w) {
+    const files = info(name).glyphs || {};
+    return files[String(w)] ? BASE + files[String(w)] : null;
+  }
+
+  /**
+   * Load the glyph outlines of a font and weight once, with a <script> tag (which works from file://,
+   * unlike fetch). Only needed when favicon.svg is built.
+   */
+  function loadGlyphs(name, w) {
+    const id = key(name) + '|' + w;
+    if (glyphStore[id]) return Promise.resolve(glyphStore[id]);
+    if (!glyphLoads[id]) {
+      glyphLoads[id] = new Promise((resolve, reject) => {
+        const fail = () => {
+          delete glyphLoads[id];
+          reject(new Error('the outlines of the ' + info(name).label + ' font could not be loaded'));
+        };
+        const src = glyphFile(name, w);
+        if (!src) return fail();
+        const script = document.createElement('script');
+        script.src = src;
+        script.onload = () => (glyphStore[id] ? resolve(glyphStore[id]) : fail());
+        script.onerror = fail;
+        document.head.appendChild(script);
+      });
+    }
+    return glyphLoads[id];
+  }
+
   return {
     keys, key, label, family, previewFamily, hasBold, weight, stack, css,
     parseRanges, has, missing,
+    addGlyphs, glyphs, glyphFile, loadGlyphs,
     EMOJI_FAMILY, EMOJI_SIZE,
     registerPreviews, prepare, loadEmoji,
     emojiState: () => emojiState,

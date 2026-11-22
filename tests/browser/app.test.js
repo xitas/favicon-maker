@@ -25,9 +25,10 @@ async function downloadZip(page) {
   return Object.fromEntries(Object.entries(files).map(([k, v]) => [k, Buffer.from(v)]));
 }
 
-/** Check every file in the ZIP has the right format and size. */
-function checkZipContents(files) {
-  assert.deepEqual(Object.keys(files).sort(), NAMES, 'every file in FILES');
+/** Check every file in the ZIP has the right format and size. `svg: false` when favicon.svg can't be made. */
+function checkZipContents(files, { svg = true } = {}) {
+  const expected = svg ? NAMES : NAMES.filter((n) => n !== 'favicon.svg');
+  assert.deepEqual(Object.keys(files).sort(), expected, 'every file made for this design');
   for (const f of FILES.filter((x) => x.kind === 'png')) {
     assert.deepEqual(pngSize(files[f.name]), { width: f.size, height: f.size }, f.name);
   }
@@ -166,7 +167,7 @@ for (const target of targets()) {
         await nextFrames(page);
 
         const files = await downloadZip(page);
-        checkZipContents(files);
+        checkZipContents(files, { svg: false }); // a PNG upload has no SVG
 
         const big = readPng(files['android-chrome-512x512.png']);
         assert.ok(near(pixel(big, 256, 256), [255, 0, 0, 255]), 'center is the red of the image');
@@ -313,14 +314,14 @@ for (const target of targets()) {
         });
         const code = page.locator('#snippet code');
         assert.equal(await page.inputValue('#basePath'), '/');
-        assert.match(await code.textContent(), /href="\/favicon\.ico" sizes="16x16 32x32 48x48"/);
+        assert.match(await code.textContent(), /href="\/favicon\.ico" sizes="32x32">\n<link rel="icon" href="\/favicon\.svg" type="image\/svg\+xml" sizes="any">/);
 
         for (const [typed, prefix] of [['favicon-maker', '/favicon-maker/'], ['/a/b/', '/a/b/'], ['', '/'], ['  docs//icons  ', '/docs/icons/']]) {
           await page.fill('#basePath', typed);
           await nextFrames(page);
           const text = await code.textContent();
           const hrefs = [...text.matchAll(/href="([^"]+)"/g)].map((m) => m[1]);
-          assert.equal(hrefs.length, 5, typed);
+          assert.equal(hrefs.length, 6, typed);
           for (const href of hrefs) assert.ok(href.startsWith(prefix) && !href.slice(prefix.length).includes('/'), `${typed}: ${href}`);
 
           await page.click('#copySnippet');
@@ -417,7 +418,9 @@ for (const target of targets()) {
         await page.click('#modeImage');
         await page.setInputFiles('#file', { name: 'test.png', mimeType: 'image/png', buffer: TEST_IMAGE });
         await page.waitForFunction(() => document.getElementById('fileNote').textContent.startsWith('64 × 64'));
-        assert.ok((await states()).every((d) => !d), 'on once an image is loaded');
+        // Every button is on once a PNG is loaded, except favicon.svg, which a PNG can't make.
+        const svgIndex = 1 + FILES.findIndex((f) => f.name === 'favicon.svg');
+        assert.deepEqual(await states(), (await states()).map((_, i) => i === svgIndex), 'on once an image is loaded');
         assert.equal(await page.locator('#filesNote').textContent(), '');
         assert.deepEqual(errors, []);
       } finally {

@@ -82,6 +82,12 @@
 
         <div class="group">
           <label class="color" for="bg">Background color <input type="color" id="bg" value="#0b7a75"></label>
+          <label class="check" for="dark"><input type="checkbox" id="dark" aria-controls="darkColors"> Different colors in dark mode</label>
+          <div id="darkColors" class="group-inner" hidden>
+            <label class="color" for="darkFg" id="darkFgLabel">Dark mode text color <input type="color" id="darkFg" value="#0b7a75"></label>
+            <label class="color" for="darkBg">Dark mode background color <input type="color" id="darkBg" value="#ffffff"></label>
+            <p class="hint">Only favicon.svg can change in dark mode, so the dark browser tab above shows these colors. The PNG and ICO files keep the normal colors.</p>
+          </div>
           <label class="check" for="transparent"><input type="checkbox" id="transparent"> Transparent background</label>
           <label class="col" for="radius">
             <span class="row">Corner radius <output id="radiusOut" for="radius">22%</output></span>
@@ -147,6 +153,7 @@
   <script src="js/lib/zip.js" defer></script>
   <script src="js/lib/ico.js" defer></script>
   <script src="js/lib/shrink.js" defer></script>
+  <script src="js/lib/svg.js" defer></script>
   <script src="js/fonts.js" defer></script>
   <script src="js/draw.js" defer></script>
   <script src="js/outputs.js" defer></script>

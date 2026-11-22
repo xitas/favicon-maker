@@ -129,7 +129,7 @@ test('no font file is left over that the list does not use', () => {
   const used = new Set(['emoji/noto-color-emoji.woff2']);
   for (const k of KEYS) {
     const info = Fonts.info(k);
-    for (const rel of [...Object.values(info.files), info.preview]) used.add(rel);
+    for (const rel of [...Object.values(info.files), info.preview, ...Object.values(info.glyphs)]) used.add(rel);
   }
   for (const dir of fs.readdirSync(FONT_DIR)) {
     for (const name of fs.readdirSync(path.join(FONT_DIR, dir))) {

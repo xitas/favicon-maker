@@ -1,5 +1,5 @@
 /* The files the generator produces, and how to build each one, plus the pure text and path helpers they use.
-   Depends on Fonts, Draw, Ico, Zip. */
+   Depends on Svg, Fonts, Draw, Ico, Zip. */
 const Outputs = (() => {
   'use strict';
 
@@ -10,6 +10,7 @@ const Outputs = (() => {
 
   const FILES = [
     { name: 'favicon.ico', kind: 'ico', sizes: [16, 32, 48], note: 'Legacy browsers. Holds 16, 32 and 48 px.', dims: '16, 32, 48' },
+    { name: 'favicon.svg', kind: 'svg', note: 'Modern browsers. Sharp at every size, and can change colors in dark mode.', dims: 'Vector' },
     { name: 'favicon-16x16.png', kind: 'png', size: 16, note: 'Browser tab', dims: '16 × 16' },
     { name: 'favicon-32x32.png', kind: 'png', size: 32, note: 'Browser tab on high-DPI screens', dims: '32 × 32' },
     { name: 'apple-touch-icon.png', kind: 'png', size: 180, variant: 'apple', note: 'iPhone and iPad home screen (square, no transparency)', dims: '180 × 180' },
@@ -108,18 +109,103 @@ const Outputs = (() => {
     return origin + '/' + segments.map((seg) => seg + '/').join('');
   }
 
+  /* ---------- favicon.svg ---------- */
+
+  const SVG_SIZE = 512;
+  const SVG_NOTES = {
+    emoji: "SVG isn't available for emoji, so browsers use the PNG files.",
+    chars: "SVG isn't available for characters outside the chosen font, so browsers use the PNG files.",
+    raster: "SVG isn't available for PNG, JPG or WebP images, so browsers use the PNG files.",
+    noImage: 'Choose an image first.'
+  };
+  const EMOJI_LIKE = /[\p{Extended_Pictographic}\p{Regional_Indicator}\u20E3\uFE0F]/u;
+
+  /**
+   * Can favicon.svg be made for these settings? Text needs every character as an outline in the chosen
+   * font; an image must be an SVG. Returns { ok: true } or { ok: false, reason }.
+   */
+  function svgStatus(s) {
+    if (s.mode === 'image') {
+      if (!s.image) return { ok: false, reason: SVG_NOTES.noImage };
+      return s.imageSvg ? { ok: true } : { ok: false, reason: SVG_NOTES.raster };
+    }
+    const font = Fonts.key(s.font);
+    for (const g of graphemes(String(s.text || '').normalize('NFC'))) {
+      const points = Array.from(g);
+      if (points.length === 1 && Fonts.has(font, g.codePointAt(0))) continue;
+      return { ok: false, reason: EMOJI_LIKE.test(g) ? SVG_NOTES.emoji : SVG_NOTES.chars };
+    }
+    return { ok: true };
+  }
+
+  /** Is this file made for these settings? Only favicon.svg can be left out. */
+  function available(file, s) {
+    return file.kind !== 'svg' || svgStatus(s).ok;
+  }
+
+  /** The text as outlines: one path, placed exactly where the canvas draws the text. */
+  async function textPath(s) {
+    const t = Draw.textLayout(SVG_SIZE, s);
+    if (!t) return '';
+    const w = Fonts.weight(s.font, s.bold);
+    const data = await Fonts.loadGlyphs(s.font, w);
+    // Where each character starts: the width of the text up to and including it, minus its own width.
+    // That keeps the browser's kerning, so the outlines line up with the canvas glyph for glyph.
+    const ctx = document.createElement('canvas').getContext('2d');
+    ctx.font = Fonts.css(s, t.px);
+    const scale = t.px / data.upm;
+    let prefix = '';
+    let d = '';
+    for (const ch of Array.from(t.text)) {
+      prefix += ch;
+      const x = ctx.measureText(prefix).width - ctx.measureText(ch).width;
+      const glyph = data.glyphs[ch.codePointAt(0)];
+      if (glyph === undefined) throw new Error(SVG_NOTES.chars);
+      d += Svg.glyphPath(glyph, scale, t.x + x, t.y);
+    }
+    return d;
+  }
+
+  /** Build favicon.svg. Colors for dark mode are written in only when the settings ask for them. */
+  async function svgText(s) {
+    const status = svgStatus(s);
+    if (!status.ok) throw new Error(status.reason);
+    const o = {
+      size: SVG_SIZE,
+      radius: (SVG_SIZE * s.radius) / 100,
+      background: s.transparent ? null : s.bg,
+      foreground: s.fg,
+      dark: s.dark ? { background: s.darkBg, foreground: s.darkFg } : null
+    };
+    if (s.mode === 'image') {
+      const l = Draw.imageLayout(SVG_SIZE, s, s.imageSvg.viewBox[2], s.imageSvg.viewBox[3]);
+      o.image = { svg: s.imageSvg, x: l.clip.x, y: l.clip.y, size: l.clip.size, fit: s.fit };
+    } else {
+      o.path = await textPath(s);
+    }
+    return Svg.icon(o);
+  }
+
   /* ---------- Text outputs ---------- */
 
   /** The <head> snippet, with paths for the folder in the settings. */
+  /**
+   * The <head> snippet, with paths for the folder in the settings.
+   * With favicon.svg, the ICO is marked 32x32 and the SVG "any": Chrome and Edge then pick the SVG, while
+   * listing 16 and 32 px on the ICO makes them use the ICO instead. Browsers without SVG favicons skip the
+   * link by its type and use the ICO and PNGs.
+   */
   function snippet(s) {
     const base = basePath(s && s.basePath);
+    const withSvg = !!s && svgStatus(s).ok;
     return [
-      `<link rel="icon" href="${base}favicon.ico" sizes="16x16 32x32 48x48">`,
+      withSvg ? `<link rel="icon" href="${base}favicon.ico" sizes="32x32">` : `<link rel="icon" href="${base}favicon.ico" sizes="16x16 32x32 48x48">`,
+      withSvg ? `<link rel="icon" href="${base}favicon.svg" type="image/svg+xml" sizes="any">` : null,
       `<link rel="icon" type="image/png" sizes="32x32" href="${base}favicon-32x32.png">`,
       `<link rel="icon" type="image/png" sizes="16x16" href="${base}favicon-16x16.png">`,
       `<link rel="apple-touch-icon" href="${base}apple-touch-icon.png">`,
       `<link rel="manifest" href="${base}site.webmanifest">`
-    ].join('\n');
+    ].filter(Boolean).join('\n');
   }
 
   function manifestText(s) {
@@ -158,6 +244,9 @@ const Outputs = (() => {
       return new Blob([manifestText(s)], { type: 'application/manifest+json' });
     }
     s = await Fonts.prepare(s);
+    if (file.kind === 'svg') {
+      return new Blob([await svgText(s)], { type: 'image/svg+xml' });
+    }
     if (file.kind === 'ico') {
       const blobs = await Promise.all(file.sizes.map((z) => toBlob(Draw.render(z, s))));
       const buffers = await Promise.all(blobs.map((b) => b.arrayBuffer()));
@@ -171,11 +260,15 @@ const Outputs = (() => {
     s = await Fonts.prepare(s);
     const entries = [];
     for (const file of FILES) {
+      if (!available(file, s)) continue;
       const blob = await build(file, s);
       entries.push({ name: file.name, data: new Uint8Array(await blob.arrayBuffer()) });
     }
     return Zip.make(entries);
   }
 
-  return { FILES, TEXT_MAX, SHORT_NAME_MAX, graphemes, clip, limitEdit, basePath, snippet, build, buildZip };
+  return {
+    FILES, TEXT_MAX, SHORT_NAME_MAX, SVG_NOTES, graphemes, clip, limitEdit, basePath, snippet,
+    svgStatus, available, svgText, build, buildZip
+  };
 })();

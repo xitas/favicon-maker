@@ -1,4 +1,4 @@
-/* Page UI: reads the form, keeps previews in sync and wires up downloads. Depends on Fonts, Draw, Outputs. */
+/* Page UI: reads the form, keeps previews in sync and wires up downloads. Depends on Svg, Fonts, Draw, Outputs. */
 (function () {
   'use strict';
 
@@ -22,6 +22,7 @@
     file: $('file'), drop: $('drop'), dropText: $('dropText'), fileNote: $('fileNote'), fit: $('fit'), pad: $('pad'), padOut: $('padOut'),
     bg: $('bg'), transparent: $('transparent'), radius: $('radius'), radiusOut: $('radiusOut'), appName: $('appName'),
     maskPad: $('maskPad'), maskPadOut: $('maskPadOut'), masks: $('masks'), safeZone: $('safeZone'),
+    dark: $('dark'), darkColors: $('darkColors'), darkFg: $('darkFg'), darkFgLabel: $('darkFgLabel'), darkBg: $('darkBg'),
     heroIcon: $('heroIcon'), tabA: $('tabA'), tabB: $('tabB'), tabTitleA: $('tabTitleA'), tabTitleB: $('tabTitleB'),
     sizes: $('sizes'), files: $('files'), filesNote: $('filesNote'), zip: $('zip'),
     basePath: $('basePath'), snippet: $('snippet'), copySnippet: $('copySnippet')
@@ -30,11 +31,12 @@
   const RANGES = ['textScale', 'pad', 'radius', 'maskPad'];
   const MASK_SHAPES = [['circle', 'Circle'], ['squircle', 'Squircle'], ['rounded', 'Rounded square'], ['teardrop', 'Teardrop']];
   const MASK_PREVIEW = 96;
-  const INPUTS = ['text', 'font', 'bold', 'emoji', 'textScale', 'fg', 'fit', 'pad', 'bg', 'transparent', 'radius', 'maskPad', 'safeZone', 'appName', 'basePath'];
+  const INPUTS = ['text', 'font', 'bold', 'emoji', 'textScale', 'fg', 'fit', 'pad', 'bg', 'transparent', 'radius', 'maskPad', 'safeZone', 'dark', 'darkFg', 'darkBg', 'appName', 'basePath'];
 
   let mode = 'text';
   let image = null;    // loaded HTMLImageElement for image mode
   let imageUrl = null; // its object URL, released when another image replaces it
+  let imageSvg = null; // the sanitized SVG, when the image is one
 
   const previews = []; // { canvas, size }
   const thumbs = [];   // { canvas, size, variant }
@@ -45,7 +47,8 @@
     return {
       mode,
       image,
-      imageVector: !!(image && image.dataset.vector === '1'),
+      imageVector: !!imageSvg,
+      imageSvg,
       text: Outputs.clip(el.text.value, Outputs.TEXT_MAX),
       font: el.font.value,
       bold: el.bold.checked,
@@ -56,6 +59,9 @@
       transparent: el.transparent.checked,
       radius: Number(el.radius.value),
       maskPad: Number(el.maskPad.value),
+      dark: el.dark.checked,
+      darkFg: el.darkFg.value,
+      darkBg: el.darkBg.value,
       fit: el.fit.value,
       pad: Number(el.pad.value),
       appName: el.appName.value.trim() || 'My App',
@@ -244,7 +250,7 @@
       btn.textContent = 'Download';
       btn.setAttribute('aria-label', 'Download ' + file.name);
       btn.setAttribute('aria-describedby', status.id + ' filesNote');
-      const entry = { button: btn, busy: false, note: status };
+      const entry = { button: btn, busy: false, note: status, file, reasonShown: false };
       downloads.push(entry);
       btn.addEventListener('click', () => runDownload(entry, file.name, () => Outputs.build(file, readSettings())));
 
@@ -256,7 +262,22 @@
   /** Enable or disable the Download buttons: busy while building, and off in image mode with no image. */
   function updateDownloads() {
     const needsImage = mode === 'image' && !image;
-    downloads.forEach((d) => { d.button.disabled = needsImage || d.busy; });
+    const s = readSettings();
+    downloads.forEach((d) => {
+      const unavailable = !!d.file && !Outputs.available(d.file, s);
+      d.button.disabled = needsImage || d.busy || unavailable;
+      // A file that can't be made for this design (favicon.svg for emoji, say) says why in its row.
+      if (d.file && d.file.kind === 'svg') {
+        const reason = unavailable && !needsImage ? Outputs.svgStatus(s).reason : '';
+        if (reason) {
+          if (d.note.textContent !== reason) setStatus(d.note, reason, false);
+          d.reasonShown = true;
+        } else if (d.reasonShown) {
+          setStatus(d.note, '', false);
+          d.reasonShown = false;
+        }
+      }
+    });
     if (needsImage) setStatus(el.filesNote, NO_IMAGE_NOTE, false);
     else if (el.filesNote.textContent === NO_IMAGE_NOTE) setStatus(el.filesNote, '', false);
   }
@@ -271,6 +292,7 @@
       queued = false;
       const raw = readSettings();
       updateControls(raw);
+      updateDownloads();
       updateFontControls();
       updateNotes(raw);
       const seq = ++drawSeq;
@@ -315,6 +337,8 @@
     el.padOut.textContent = s.pad + '%';
     el.radiusOut.textContent = s.radius + '%';
     el.maskPadOut.textContent = s.maskPad + '%';
+    el.darkColors.hidden = !s.dark;
+    el.darkFgLabel.hidden = s.mode !== 'text';
     el.bg.disabled = s.transparent;
     el.tabTitleA.textContent = el.tabTitleB.textContent = s.appName;
     el.snippet.querySelector('code').textContent = Outputs.snippet(s);
@@ -325,7 +349,9 @@
     previews.forEach((p) => Draw.icon(p.canvas.getContext('2d'), p.size, s, false));
     masks.forEach((m) => drawMask(m, s));
     thumbs.forEach((t) => Draw.icon(t.canvas.getContext('2d'), t.size, s, t.variant));
-    [el.tabA, el.tabB].forEach((c) => Draw.icon(c.getContext('2d'), 32, s, false));
+    // The light browser tab shows the normal colors; the dark one shows the dark mode colors when set.
+    Draw.icon(el.tabA.getContext('2d'), 32, s, false);
+    Draw.icon(el.tabB.getContext('2d'), 32, s.dark ? Object.assign({}, s, { fg: s.darkFg, bg: s.darkBg }) : s, false);
     Draw.icon(el.heroIcon.getContext('2d'), el.heroIcon.width, s, false);
   }
 
@@ -342,18 +368,37 @@
   /* ---------- Image loading ---------- */
   function loadFile(file) {
     if (!file) return;
-    if (!file.type.startsWith('image/')) {
+    const isSvg = file.type === 'image/svg+xml' || /\.svg$/i.test(file.name);
+    if (!file.type.startsWith('image/') && !isSvg) {
       setNote('That file is not an image. Choose a PNG, JPG, SVG or WebP.', true);
       return;
     }
-    const url = URL.createObjectURL(file);
+    if (!isSvg) {
+      showImage(file, file.name, null);
+      return;
+    }
+    // Clean an SVG before using it anywhere: no scripts, event handlers or outside files.
+    file.text().then((text) => {
+      let clean;
+      try {
+        clean = Svg.sanitize(text);
+      } catch (e) {
+        setNote(e.message + '. Try another file.', true);
+        return;
+      }
+      showImage(new Blob([clean.standalone], { type: 'image/svg+xml' }), file.name, clean);
+    }, () => setNote('This image could not be read. Try a PNG or JPG.', true));
+  }
+
+  function showImage(blob, name, svg) {
+    const url = URL.createObjectURL(blob);
     const img = new Image();
-    img.dataset.vector = file.type === 'image/svg+xml' ? '1' : '';
     img.onload = () => {
       if (imageUrl) URL.revokeObjectURL(imageUrl);
       image = img;
       imageUrl = url;
-      el.dropText.textContent = file.name;
+      imageSvg = svg;
+      el.dropText.textContent = name;
       setNote((img.naturalWidth || '?') + ' × ' + (img.naturalHeight || '?') + ' px. Choose another image any time.', false);
       updateDownloads();
       refresh();

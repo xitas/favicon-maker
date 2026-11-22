@@ -12,6 +12,10 @@ For each font it:
 - downloads the upstream file and its OFL license (google/fonts and googlefonts/noto-emoji),
 - keeps only Latin and Latin Extended (plus combining accents) and drops hinting, which differs per platform,
 - writes regular and bold as static woff2 files, or one variable woff2 when that is smaller,
+- keeps only the kerning feature, so each character is always one glyph (no ligatures or contextual
+  alternates), which lets favicon.svg draw the same outlines as the canvas,
+- writes the glyph outlines of each weight as compact path data (<font>-<weight>.glyphs.js), loaded only
+  when a page builds favicon.svg,
 - writes a tiny "name" font with just the letters of its label, for the font menu,
 - writes the characters each font really has into js/fonts.js, between the GENERATED markers.
 """
@@ -26,6 +30,7 @@ import urllib.request
 from fontTools.ttLib import TTFont
 from fontTools.subset import Subsetter, Options
 from fontTools.varLib import instancer
+from fontTools.pens.basePen import BasePen
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, 'assets', 'fonts')
@@ -47,6 +52,8 @@ FONTS = {
     'handwritten': ('Caveat', 'Handwritten', 'cursive', {'var': GF + 'ofl/caveat/Caveat%5Bwght%5D.ttf'}, GF + 'ofl/caveat/OFL.txt'),
 }
 EMOJI = (NOTO + '2D/fonts/Noto-COLRv1.ttf', NOTO + 'LICENSE')
+
+LICENSE_NOTE = 'Font Software under the SIL Open Font License 1.1, see OFL.txt in this folder.'
 
 # Latin and Latin Extended, as Google Fonts splits them, plus all combining accents (U+0300-036F).
 LATIN = ('U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,'
@@ -92,7 +99,8 @@ def subset(font, unicodes, keep_layout=True):
     opts = Options()
     opts.hinting = False
     opts.desubroutinize = True
-    opts.layout_features = ['*'] if keep_layout else []
+    # Kerning only: no ligatures or contextual alternates, so each character is one glyph everywhere.
+    opts.layout_features = ['kern'] if keep_layout else []
     opts.name_IDs = ['*']
     opts.name_languages = ['*']
     opts.notdef_outline = True
@@ -107,6 +115,63 @@ def woff2_bytes(font):
     buf = io.BytesIO()
     font.save(buf)
     return buf.getvalue()
+
+
+class CompactPen(BasePen):
+    """Glyph outlines as a short SVG-like path: relative whole numbers in font units, y up."""
+
+    def __init__(self, glyph_set):
+        super().__init__(glyph_set)
+        self.parts = []
+        self.cur = (0, 0)
+        self.start = (0, 0)
+
+    def _add(self, cmd, *pts):
+        nums = []
+        for x, y in pts:
+            nums += [round(x) - self.cur[0], round(y) - self.cur[1]]
+        self.parts.append(cmd + ' '.join(str(n) for n in nums).replace(' -', '-'))
+        self.cur = (round(pts[-1][0]), round(pts[-1][1]))
+
+    def _moveTo(self, pt):
+        self._add('m', pt)
+        self.start = self.cur
+
+    def _lineTo(self, pt):
+        self._add('l', pt)
+
+    def _qCurveToOne(self, pt1, pt2):
+        # Both points relative to the current point, as in SVG.
+        x0, y0 = self.cur
+        self.parts.append('q' + ' '.join(str(n) for n in [round(pt1[0]) - x0, round(pt1[1]) - y0,
+                                                            round(pt2[0]) - x0, round(pt2[1]) - y0]).replace(' -', '-'))
+        self.cur = (round(pt2[0]), round(pt2[1]))
+
+    def _curveToOne(self, pt1, pt2, pt3):
+        x0, y0 = self.cur
+        nums = [round(p[i]) - (x0, y0)[i] for p in (pt1, pt2, pt3) for i in (0, 1)]
+        self.parts.append('c' + ' '.join(str(n) for n in nums).replace(' -', '-'))
+        self.cur = (round(pt3[0]), round(pt3[1]))
+
+    def _closePath(self):
+        self.parts.append('z')
+        self.cur = self.start
+
+    def value(self):
+        return ''.join(self.parts)
+
+
+def glyph_paths(data, codepoints):
+    """{code point: compact path} for a static font given as woff2 bytes."""
+    font = TTFont(io.BytesIO(data))
+    cmap = font.getBestCmap()
+    glyph_set = font.getGlyphSet()
+    out = {}
+    for cp in sorted(codepoints):
+        pen = CompactPen(glyph_set)
+        glyph_set[cmap[cp]].draw(pen)
+        out[str(cp)] = pen.value()
+    return font['head'].unitsPerEm, out
 
 
 def reload(font):
@@ -134,6 +199,7 @@ def main():
     latin = parse_ranges(LATIN)
     manifest = {}
     total = 0
+    glyph_total = [0]
 
     for key, (label, style, generic, sources, license_url) in FONTS.items():
         print(key, label)
@@ -178,6 +244,18 @@ def main():
             cmap = set(TTFont(io.BytesIO(data)).getBestCmap())
             covered = cmap if covered is None else covered & cmap
 
+        # Glyph outlines per weight, from the static instances (the same outlines the browser draws).
+        glyph_files = {}
+        for w in weights:
+            upm, paths = glyph_paths(candidates['static'][w], covered)
+            name = f'{slug}-{w}.glyphs.js'
+            text = (f'/* Glyph outlines of {label} {w} for favicon.svg, made by tools/build-fonts.py. {LICENSE_NOTE} */\n'
+                    + f'Fonts.addGlyphs({json.dumps(key)}, {w}, ' + json.dumps({'upm': upm, 'glyphs': paths}, separators=(',', ':')) + ');\n')
+            with open(os.path.join(folder, name), 'w', encoding='utf-8', newline='\n') as f:
+                f.write(text)
+            glyph_files[str(w)] = f'{key}/{name}'
+            glyph_total[0] += len(text.encode('utf-8'))
+
         # Tiny font with only the letters of the menu label, for showing each option in its own font.
         preview_text = f'{label} ({style})'
         first = candidates[kind][next(iter(candidates[kind]))]
@@ -200,6 +278,7 @@ def main():
             'variable': kind == 'var',
             'files': files,
             'preview': f'{key}/{slug}-name.woff2',
+            'glyphs': glyph_files,
             'ranges': ','.join(f'U+{a:04X}' + (f'-{b:04X}' if b != a else '') for a, b in to_ranges(covered)),
         }
         print(f'  {kind}: ' + ', '.join(f'{w}={len(d) // 1024} KB' for w, d in candidates[kind].items())
@@ -232,7 +311,8 @@ def main():
     with open(FONTS_JS, 'w', encoding='utf-8', newline='\n') as f:
         f.write(js)
 
-    print(f'Text fonts and name previews: {total / 1024:.0f} KB. Emoji: {len(emoji_data) / 1024:.0f} KB.')
+    print(f'Text fonts and name previews: {total / 1024:.0f} KB. Glyph outlines: {glyph_total[0] / 1024:.0f} KB. '
+          f'Emoji: {len(emoji_data) / 1024:.0f} KB.')
 
 
 if __name__ == '__main__':

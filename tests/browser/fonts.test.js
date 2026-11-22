@@ -205,7 +205,7 @@ for (const target of targets()) {
         await page.fill('#text', 'سلا');
         await settled(page);
         const { data } = await download(page, '#zip');
-        assert.equal(Object.keys(unzipSync(new Uint8Array(data))).length, loadScripts().Outputs.FILES.length, 'every file');
+        assert.equal(Object.keys(unzipSync(new Uint8Array(data))).length, loadScripts().Outputs.FILES.length - 1, 'every file but favicon.svg');
         assert.deepEqual(errors, []);
       } finally {
         await context.close();
