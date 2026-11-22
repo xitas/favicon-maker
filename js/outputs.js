@@ -1,5 +1,5 @@
 /* The files the generator produces, and how to build each one, plus the pure text and path helpers they use.
-   Depends on Svg, Fonts, Draw, Ico, Zip. */
+   Depends on Svg, Fonts, Icons, Draw, Ico, Zip. */
 const Outputs = (() => {
   'use strict';
 
@@ -125,6 +125,7 @@ const Outputs = (() => {
    * font; an image must be an SVG. Returns { ok: true } or { ok: false, reason }.
    */
   function svgStatus(s) {
+    if (s.mode === 'icon') return { ok: true }; // icons are vectors
     if (s.mode === 'image') {
       if (!s.image) return { ok: false, reason: SVG_NOTES.noImage };
       return s.imageSvg ? { ok: true } : { ok: false, reason: SVG_NOTES.raster };
@@ -167,6 +168,19 @@ const Outputs = (() => {
     return d;
   }
 
+  /**
+   * Load what drawing needs: the fonts for text, the icon set for an icon. Resolves to the settings to
+   * draw with (see Fonts.prepare). Rejects when something can't be loaded, so no file is made without it.
+   */
+  async function prepare(s) {
+    const out = await Fonts.prepare(s);
+    if (out.mode === 'icon') {
+      if (!(await Icons.load())) throw new Error('the icon library could not be loaded');
+      if (!Icons.get(out.icon)) throw new Error('the icon “' + out.icon + '” isn’t in the library');
+    }
+    return out;
+  }
+
   /** Build favicon.svg. Colors for dark mode are written in only when the settings ask for them. */
   async function svgText(s) {
     const status = svgStatus(s);
@@ -180,7 +194,11 @@ const Outputs = (() => {
       dark: s.dark ? { background: s.darkBg, background2: s.darkBg2, foreground: s.darkFg } : null,
       border: s.border ? { width: Draw.borderPx(SVG_SIZE, s.borderWidth), color: s.borderColor } : null
     };
-    if (s.mode === 'image') {
+    if (s.mode === 'icon') {
+      const l = Draw.iconLayout(SVG_SIZE, s);
+      const shift = Draw.offsetPx(SVG_SIZE, s);
+      o.icon = { d: Icons.get(s.icon), x: l.x + shift.x, y: l.y + shift.y, k: l.k, stroke: l.stroke };
+    } else if (s.mode === 'image') {
       const l = Draw.imageLayout(SVG_SIZE, s, s.imageSvg.viewBox[2], s.imageSvg.viewBox[3]);
       const shift = Draw.offsetPx(SVG_SIZE, s);
       o.image = { svg: s.imageSvg, x: l.clip.x + shift.x, y: l.clip.y + shift.y, size: l.clip.size, fit: s.fit };
@@ -247,7 +265,7 @@ const Outputs = (() => {
     if (file.kind === 'manifest') {
       return new Blob([manifestText(s)], { type: 'application/manifest+json' });
     }
-    s = await Fonts.prepare(s);
+    s = await prepare(s);
     if (file.kind === 'svg') {
       return new Blob([await svgText(s)], { type: 'image/svg+xml' });
     }
@@ -261,7 +279,7 @@ const Outputs = (() => {
 
   /** Build every file and pack them into one ZIP Blob. */
   async function buildZip(s) {
-    s = await Fonts.prepare(s);
+    s = await prepare(s);
     const entries = [];
     for (const file of FILES) {
       if (!available(file, s)) continue;
@@ -273,6 +291,6 @@ const Outputs = (() => {
 
   return {
     FILES, TEXT_MAX, SHORT_NAME_MAX, SVG_NOTES, graphemes, clip, limitEdit, basePath, snippet,
-    svgStatus, available, svgText, build, buildZip
+    svgStatus, available, svgText, prepare, build, buildZip
   };
 })();

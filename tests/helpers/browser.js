@@ -57,7 +57,10 @@ async function openApp(browser, url, options = {}) {
 async function settled(page) {
   await nextFrames(page);
   await page.evaluate(() => document.fonts.ready);
-  await page.evaluate(() => Fonts.prepare({ mode: 'text', text: document.getElementById('text').value, font: document.getElementById('font').value, bold: document.getElementById('bold').checked, emoji: document.getElementById('emoji').value }).catch(() => null));
+  await page.evaluate(() => {
+    const mode = document.getElementById('modeIcon') && document.getElementById('modeIcon').getAttribute('aria-pressed') === 'true' ? 'icon' : 'text';
+    return Outputs.prepare({ mode, text: document.getElementById('text').value, font: document.getElementById('font').value, bold: document.getElementById('bold').checked, emoji: document.getElementById('emoji').value, icon: 'star' }).catch(() => null);
+  });
   await nextFrames(page);
 }
 

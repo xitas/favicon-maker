@@ -6,7 +6,7 @@ A favicon generator built with plain HTML, CSS and JavaScript. Make an icon from
 
 ## Features
 
-- **Two sources:** type up to 3 letters or emoji, or upload an image (PNG, JPG, SVG, WebP)
+- **Three sources:** type up to 3 letters or emoji, pick one of about 2,100 icons from the Lucide library, or upload an image (PNG, JPG, SVG, WebP)
 - **Design controls:** 8 bundled fonts, bold, text size and color; a rounded square, circle, squircle or square shape; a solid, linear gradient or radial gradient background, or none; an optional border; position fine-tuning; and optional different colors in dark mode
 - **Emoji style:** this device's emoji, or the same emoji everywhere with a bundled emoji font
 - **Live preview:** browser tab mockups (light and dark), the icon at 16, 32, 48, 180 and 512 px, and the Android maskable icon cut to the circle, squircle, rounded square and teardrop shapes, with an optional safe zone overlay
@@ -31,7 +31,8 @@ A favicon generator built with plain HTML, CSS and JavaScript. Make an icon from
 .
 ├── index.html          # Page markup
 ├── assets/
-│   └── fonts/          # Bundled icon fonts (woff2) and their glyph outlines, each with its OFL license
+│   ├── fonts/          # Bundled icon fonts (woff2) and their glyph outlines, each with its OFL license
+│   └── icons/          # The Lucide icon set as path data, with its ISC license
 ├── css/
 │   └── style.css       # Styles
 ├── js/
@@ -41,6 +42,8 @@ A favicon generator built with plain HTML, CSS and JavaScript. Make an icon from
 │   │   ├── shrink.js   # Shrinks images step by step, in premultiplied alpha
 │   │   └── svg.js      # favicon.svg: glyph outlines, the SVG document, and cleaning uploaded SVGs
 │   ├── fonts.js        # Bundled font list, character coverage and font loading
+│   ├── icons.js        # The icon set: loading, lookup and search
+│   ├── dialog.js       # Confirm and prompt dialogs
 │   ├── draw.js         # Draws the icon on a canvas from the current settings
 │   ├── outputs.js      # Generated files, manifest, HTML snippet, text and path helpers
 │   ├── design.js       # Checking settings, format versions, undo history, share links, export files
@@ -52,13 +55,14 @@ A favicon generator built with plain HTML, CSS and JavaScript. Make an icon from
 │   ├── browser/        # Playwright checks of the real page
 │   └── fixtures/       # Test-only files
 ├── tools/
-│   └── build-fonts.py  # Rebuilds assets/fonts from the upstream fonts (maintainers only)
+│   ├── build-fonts.py  # Rebuilds assets/fonts from the upstream fonts (maintainers only)
+│   └── build-icons.js  # Rebuilds assets/icons from Lucide (maintainers only)
 ├── LICENSE
 ├── package.json        # Test tools only, the page doesn't use them
 └── README.md
 ```
 
-The scripts are plain (non-module) scripts loaded in order, so the page still works when you open `index.html` straight from disk. Each file exposes one object (`Zip`, `Ico`, `Shrink`, `Svg`, `Fonts`, `Draw`, `Outputs`, `Design`, `Store`) that the files after it use.
+The scripts are plain (non-module) scripts loaded in order, so the page still works when you open `index.html` straight from disk. Each file exposes one object (`Zip`, `Ico`, `Shrink`, `Svg`, `Fonts`, `Icons`, `Draw`, `Outputs`, `Design`, `Store`, `Dialog`) that the files after it use.
 
 The page makes no requests to other sites. The interface uses your system's fonts; the icons use fonts bundled in `assets/fonts/`, so an icon looks the same whichever computer it's made on.
 
@@ -165,6 +169,12 @@ Characters a font doesn't have, such as Urdu, Arabic, Chinese or Hindi, are draw
 The emoji font (1.9 MB) is downloaded only when you choose **Same everywhere**. It uses the COLRv1 color font format, which Chrome, Edge and Firefox draw on a canvas. A browser that can't draw it falls back to its own emoji and says so.
 
 To rebuild the fonts from their upstream sources: `python -m pip install fonttools brotli`, then `python tools/build-fonts.py`.
+
+## Icons
+
+The Icon source uses [Lucide](https://lucide.dev) 1.77.0 (ISC license, see `assets/icons/LICENSE`), by Lucide Icons and Contributors. Its 2,098 icons are bundled as path data in `assets/icons/lucide.js` (596 KB, about 150 KB when a server compresses it), which is downloaded only when you choose the Icon source, so it works offline and from disk. Search covers icon names and Lucide's tags. The icon color is the text color setting, with its own line width and size. Icons are vectors, so `favicon.svg` is always made for them. Saved designs and share links keep only the icon's name.
+
+To rebuild the set from Lucide: `node tools/build-icons.js`.
 
 ## License
 

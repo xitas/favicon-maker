@@ -396,7 +396,7 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
 .seg {
   position: relative;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 4px;
   padding: 4px;
   background: var(--surface-2);
@@ -409,13 +409,14 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
   top: 4px;
   bottom: 4px;
   left: 4px;
-  width: calc(50% - 6px);
+  width: calc((100% - 16px) / 3);
   border-radius: 7px;
   background: var(--accent);
   box-shadow: var(--shadow-small);
   transition: transform 0.35s var(--spring);
 }
-.seg:has(#modeImage[aria-pressed="true"])::before { transform: translateX(calc(100% + 4px)); }
+.seg:has(#modeIcon[aria-pressed="true"])::before { transform: translateX(calc(100% + 4px)); }
+.seg:has(#modeImage[aria-pressed="true"])::before { transform: translateX(calc(200% + 8px)); }
 .seg button { z-index: 1; border: 0; background: transparent; height: 32px; color: var(--muted); }
 .seg button:hover { background: transparent; color: var(--fg); }
 .seg button[aria-pressed="true"], .seg button[aria-pressed="true"]:hover { color: var(--accent-fg); font-weight: 600; }
@@ -489,6 +490,36 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
 }
 .sizes canvas { transition: transform 0.3s var(--spring), box-shadow 0.3s; transform-origin: bottom left; }
 .sizes li:hover canvas { transform: translateY(-4px) scale(1.06); box-shadow: 0 0 0 1px var(--ring), var(--shadow-lift); }
+/* Icon library */
+.icon-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
+  gap: 4px;
+  max-height: 248px;
+  overflow-y: auto;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+  overscroll-behavior: contain;
+}
+.icon-option {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  color: var(--fg);
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+.icon-option svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.icon-option:hover { background: var(--surface-2); border-color: var(--line); }
+.icon-option:focus-visible { outline: 2px solid var(--ring); outline-offset: 1px; }
+/* Selected: inverted, so it stands out without color. */
+.icon-option[aria-selected="true"] { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.icon-grid:empty { display: none; }
+
 /* Undo, redo and reset */
 .toolbar { display: flex; flex-wrap: wrap; gap: 6px; }
 .btn.small { height: 30px; padding: 0 10px; font-size: 12px; }

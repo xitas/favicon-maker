@@ -21,7 +21,8 @@ test('validate keeps every valid setting', () => {
     mode: 'image', text: 'AB', font: 'serif', bold: false, emoji: 'bundled', textScale: 30, fg: '#112233', bg: '#AABBCC',
     transparent: true, radius: 50, maskPad: 0, dark: true, darkFg: '#000000', darkBg: '#ffffff', fit: 'cover', pad: 30,
     appName: 'Café 😀', basePath: '/repo/', shape: 'squircle', bgType: 'radial', bg2: '#101010', angle: 360,
-    darkBg2: '#202020', border: true, borderWidth: 15, borderColor: '#303030', offsetX: -20, offsetY: 20
+    darkBg2: '#202020', border: true, borderWidth: 15, borderColor: '#303030', offsetX: -20, offsetY: 20,
+    icon: 'coffee', iconStroke: 1.25, iconScale: 100
   };
   assert.deepEqual(plain(Design.validate(good)), { ...good, bg: '#aabbcc' });
 });
@@ -55,7 +56,10 @@ test('validate: each invalid value falls back to its default', async (t) => {
     borderWidth: [0, 16, 2.5, '4'],
     borderColor: ['white', '#fff'],
     offsetX: [-21, 21, 0.5, '0'],
-    offsetY: [100, -100, null]
+    offsetY: [100, -100, null],
+    icon: ['Star', 'star!', '../x', 'a--b', '-star', 'x'.repeat(65), 5, ''],
+    iconStroke: [0.25, 3.5, 1.3, '2', NaN],
+    iconScale: [29, 101, 50.5]
   };
   for (const [key, values] of Object.entries(bad)) {
     for (const value of values) {

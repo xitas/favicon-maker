@@ -1,5 +1,5 @@
 /* Page UI: reads the form, keeps previews in sync, wires up downloads, and saves, restores, shares and undoes
-   designs. Depends on Svg, Fonts, Draw, Outputs, Design, Store, Dialog. */
+   designs. Depends on Svg, Fonts, Icons, Draw, Outputs, Design, Store, Dialog. */
 (function () {
   'use strict';
 
@@ -36,17 +36,22 @@
     angle: $('angle'), angleOut: $('angleOut'), angleField: $('angleField'), border: $('border'), borderFields: $('borderFields'),
     borderWidth: $('borderWidth'), borderWidthOut: $('borderWidthOut'), borderColor: $('borderColor'),
     offsetX: $('offsetX'), offsetXOut: $('offsetXOut'), offsetY: $('offsetY'), offsetYOut: $('offsetYOut'), centerOffsets: $('centerOffsets'),
-    darkBg2: $('darkBg2'), darkBg2Field: $('darkBg2Field'), darkBgLabel: $('darkBgLabel')
+    darkBg2: $('darkBg2'), darkBg2Field: $('darkBg2Field'), darkBgLabel: $('darkBgLabel'),
+    modeIcon: $('modeIcon'), iconPanel: $('iconPanel'), iconSearch: $('iconSearch'), iconCount: $('iconCount'),
+    iconGrid: $('iconGrid'), iconNote: $('iconNote'), iconColor: $('iconColor'),
+    iconStroke: $('iconStroke'), iconStrokeOut: $('iconStrokeOut'), iconScale: $('iconScale'), iconScaleOut: $('iconScaleOut')
   };
   const SECTIONS = Array.from(document.querySelectorAll('.controls details.section'));
 
-  const RANGES = ['textScale', 'pad', 'radius', 'maskPad', 'angle', 'borderWidth', 'offsetX', 'offsetY'];
+  const RANGES = ['textScale', 'pad', 'radius', 'maskPad', 'angle', 'borderWidth', 'offsetX', 'offsetY', 'iconStroke', 'iconScale'];
   const MASK_SHAPES = [['circle', 'Circle'], ['squircle', 'Squircle'], ['rounded', 'Rounded square'], ['teardrop', 'Teardrop']];
   const MASK_PREVIEW = 96;
   const INPUTS = ['text', 'font', 'bold', 'emoji', 'textScale', 'fg', 'fit', 'pad', 'bg', 'transparent', 'radius', 'maskPad', 'safeZone', 'dark', 'darkFg', 'darkBg', 'appName', 'basePath',
-    'shape', 'bgType', 'bg2', 'angle', 'darkBg2', 'border', 'borderWidth', 'borderColor', 'offsetX', 'offsetY'];
+    'shape', 'bgType', 'bg2', 'angle', 'darkBg2', 'border', 'borderWidth', 'borderColor', 'offsetX', 'offsetY',
+    'iconStroke', 'iconScale'];
 
   let mode = 'text';
+  let currentIcon = Design.DEFAULTS.icon; // the chosen library icon, by name
   let image = null;    // loaded HTMLImageElement for image mode
   let imageUrl = null; // its object URL, released when another image replaces it
   let imageSvg = null; // the sanitized SVG, when the image is one
@@ -88,7 +93,10 @@
       borderWidth: Number(el.borderWidth.value),
       borderColor: el.borderColor.value,
       offsetX: Number(el.offsetX.value),
-      offsetY: Number(el.offsetY.value)
+      offsetY: Number(el.offsetY.value),
+      icon: currentIcon,
+      iconStroke: Number(el.iconStroke.value),
+      iconScale: Number(el.iconScale.value)
     };
   }
 
@@ -158,6 +166,113 @@
     });
     // The toggle event comes a moment later, so also save when the page goes away.
     window.addEventListener('pagehide', save);
+  }
+
+  /* ---------- Icon library ---------- */
+  const ICON_LIMIT = 150; // icons shown at once; searching finds the rest
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+
+  function iconOption(name, selected) {
+    const o = document.createElement('div');
+    o.className = 'icon-option';
+    o.id = 'icon-' + name;
+    o.dataset.name = name;
+    o.setAttribute('role', 'option');
+    o.setAttribute('aria-selected', String(selected));
+    o.setAttribute('aria-label', name.replace(/-/g, ' '));
+    o.title = name;
+    o.tabIndex = -1;
+    const svg = document.createElementNS(SVG_NS, 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('aria-hidden', 'true');
+    const path = document.createElementNS(SVG_NS, 'path');
+    path.setAttribute('d', Icons.get(name));
+    svg.appendChild(path);
+    o.appendChild(svg);
+    return o;
+  }
+
+  /** Show the icons matching the search, with the chosen one selected and in the tab order. */
+  function renderIconGrid() {
+    if (!Icons.loaded()) {
+      el.iconCount.textContent = 'Loading icons…';
+      return;
+    }
+    const q = el.iconSearch.value.trim();
+    let found = Icons.search(q);
+    // Without a search, keep the chosen icon in view at the start.
+    if (!q && Icons.get(currentIcon)) found = [currentIcon].concat(found.filter((n) => n !== currentIcon));
+    const shown = found.slice(0, ICON_LIMIT);
+    el.iconGrid.replaceChildren(...shown.map((n) => iconOption(n, n === currentIcon)));
+    const focusable = el.iconGrid.querySelector('[aria-selected="true"]') || el.iconGrid.firstElementChild;
+    if (focusable) focusable.tabIndex = 0;
+    let text;
+    if (!q) text = Icons.count() + ' icons.';
+    else if (!found.length) text = 'No icons match “' + q + '”.';
+    else text = found.length + (found.length === 1 ? ' icon matches' : ' icons match') + ' “' + q + '”.';
+    if (found.length > ICON_LIMIT) text += ' Showing the first ' + ICON_LIMIT + '; search to find others.';
+    el.iconCount.textContent = text;
+    updateIconNote();
+  }
+
+  function updateIconNote() {
+    const missing = Icons.loaded() && !Icons.get(currentIcon);
+    setStatus(el.iconNote, missing ? 'The icon “' + currentIcon + '” isn’t in the library. Choose another one.' : '', missing);
+  }
+
+  function selectIcon(name, focus) {
+    if (!Icons.get(name)) return;
+    currentIcon = name;
+    el.iconGrid.querySelectorAll('.icon-option').forEach((o) => {
+      const on = o.dataset.name === name;
+      o.setAttribute('aria-selected', String(on));
+      o.tabIndex = on ? 0 : -1;
+    });
+    if (focus) {
+      const o = document.getElementById('icon-' + name);
+      if (o) o.focus();
+    }
+    updateIconNote();
+    refresh();
+    onChange('icon');
+  }
+
+  /** Arrow keys move through the grid, Home and End jump, Enter and Space choose. */
+  function onIconGridKey(e) {
+    const options = Array.from(el.iconGrid.children);
+    const current = document.activeElement && document.activeElement.closest('.icon-option');
+    if (!options.length || !current) return;
+    const i = options.indexOf(current);
+    const top = options[0].offsetTop;
+    let cols = options.findIndex((o) => o.offsetTop !== top);
+    if (cols < 1) cols = options.length;
+    let next = i;
+    if (e.key === 'ArrowRight') next = i + 1;
+    else if (e.key === 'ArrowLeft') next = i - 1;
+    else if (e.key === 'ArrowDown') next = i + cols;
+    else if (e.key === 'ArrowUp') next = i - cols;
+    else if (e.key === 'Home') next = 0;
+    else if (e.key === 'End') next = options.length - 1;
+    else if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      selectIcon(current.dataset.name, true);
+      return;
+    } else {
+      return;
+    }
+    e.preventDefault();
+    next = Math.max(0, Math.min(options.length - 1, next));
+    options.forEach((o, k) => { o.tabIndex = k === next ? 0 : -1; });
+    options[next].focus();
+    options[next].scrollIntoView({ block: 'nearest' });
+  }
+
+  function showIconLibrary() {
+    renderIconGrid();
+    Icons.load().then((ok) => {
+      if (ok) renderIconGrid();
+      else setStatus(el.iconNote, 'The icon library could not be loaded. Reload the page to try again.', true);
+    });
   }
 
   /* ---------- Font menu ---------- */
@@ -344,7 +459,7 @@
         setStatus(el.emojiNote, EMOJI_LOADING_NOTE, false);
       }
       // Wait for the fonts, so the previews never show a fallback font. Only the latest request draws.
-      Fonts.prepare(raw).then((s) => {
+      Outputs.prepare(raw).then((s) => {
         if (seq !== drawSeq) return;
         if (el.fontNote.classList.contains('err')) setStatus(el.fontNote, '', false);
         updateFontControls();
@@ -352,7 +467,9 @@
         draw(s);
       }, (err) => {
         if (seq !== drawSeq) return;
-        setStatus(el.fontNote, 'Could not load the font: ' + err.message + '. Try another font, or reload the page.', true);
+        if (raw.mode === 'icon' && Icons.loaded() && !Icons.get(raw.icon)) updateIconNote();
+        else if (raw.mode === 'icon') setStatus(el.iconNote, 'Could not draw the icon: ' + err.message + '.', true);
+        else setStatus(el.fontNote, 'Could not load the font: ' + err.message + '. Try another font, or reload the page.', true);
       });
     });
   }
@@ -385,6 +502,9 @@
     el.borderWidthOut.textContent = s.borderWidth + '%';
     el.offsetXOut.textContent = (s.offsetX > 0 ? '+' : '') + s.offsetX + '%';
     el.offsetYOut.textContent = (s.offsetY > 0 ? '+' : '') + s.offsetY + '%';
+    el.iconStrokeOut.textContent = String(s.iconStroke);
+    el.iconScaleOut.textContent = s.iconScale + '%';
+    el.iconColor.value = s.fg;
     const gradient = s.bgType !== 'solid';
     el.radiusField.hidden = s.shape !== 'rounded';
     el.bgLabel.textContent = gradient ? 'First color' : 'Background color';
@@ -416,9 +536,12 @@
   function setMode(next) {
     mode = next;
     el.modeText.setAttribute('aria-pressed', String(next === 'text'));
+    el.modeIcon.setAttribute('aria-pressed', String(next === 'icon'));
     el.modeImage.setAttribute('aria-pressed', String(next === 'image'));
     el.textPanel.hidden = next !== 'text';
+    el.iconPanel.hidden = next !== 'icon';
     el.imagePanel.hidden = next !== 'image';
+    if (next === 'icon') showIconLibrary();
     updateDownloads();
     refresh();
   }
@@ -523,8 +646,9 @@
     try {
       const s = Design.validate(state.settings);
       // Every setting has a form control with the same id (except the source, set by setMode).
+      currentIcon = s.icon;
       Object.keys(Design.DEFAULTS).forEach((k) => {
-        if (k === 'mode') return;
+        if (k === 'mode' || k === 'icon') return;
         const input = el[k];
         if (input.type === 'checkbox') input.checked = s[k];
         else input.value = String(s[k]);
@@ -982,6 +1106,19 @@
   function bindEvents() {
     el.modeText.addEventListener('click', () => { setMode('text'); onChange(null); });
     el.modeImage.addEventListener('click', () => { setMode('image'); onChange(null); });
+    el.modeIcon.addEventListener('click', () => { setMode('icon'); onChange(null); });
+    el.iconSearch.addEventListener('input', renderIconGrid);
+    el.iconGrid.addEventListener('keydown', onIconGridKey);
+    el.iconGrid.addEventListener('click', (e) => {
+      const o = e.target.closest('.icon-option');
+      if (o) selectIcon(o.dataset.name, true);
+    });
+    // The icon color is the text color setting.
+    el.iconColor.addEventListener('input', () => {
+      el.fg.value = el.iconColor.value;
+      refresh();
+      onChange('fg');
+    });
 
     // Remember the text and caret before each edit, so an edit past the limit can be undone exactly.
     // While an input method is composing, keep the state from before the composition started.

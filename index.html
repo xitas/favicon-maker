@@ -31,6 +31,7 @@
           <div class="section-body">
             <div class="seg" role="group" aria-label="Icon source">
               <button id="modeText" type="button" aria-pressed="true">Text or emoji</button>
+              <button id="modeIcon" type="button" aria-pressed="false">Icon</button>
               <button id="modeImage" type="button" aria-pressed="false">Image</button>
             </div>
           </div>
@@ -72,6 +73,28 @@
               <input type="range" id="textScale" min="30" max="100" value="70">
             </label>
             <label class="color" for="fg">Text color <input type="color" id="fg" value="#ffffff"></label>
+          </div>
+        </details>
+
+        <details class="section" id="iconPanel" open hidden>
+          <summary>Icon</summary>
+          <div class="section-body">
+            <label class="col" for="iconSearch">Search icons
+              <input id="iconSearch" type="search" autocomplete="off" spellcheck="false" placeholder="heart, star, coffee…" aria-controls="iconGrid">
+            </label>
+            <p id="iconCount" class="hint" role="status"></p>
+            <div id="iconGrid" class="icon-grid" role="listbox" aria-label="Icons" aria-describedby="iconCount"></div>
+            <p id="iconNote" class="hint note-line" role="status"></p>
+            <label class="color" for="iconColor">Icon color <input type="color" id="iconColor" value="#ffffff"></label>
+            <label class="col" for="iconStroke">
+              <span class="row">Line width <output id="iconStrokeOut" for="iconStroke">2</output></span>
+              <input type="range" id="iconStroke" min="0.5" max="3" step="0.25" value="2">
+            </label>
+            <label class="col" for="iconScale">
+              <span class="row">Icon size <output id="iconScaleOut" for="iconScale">70%</output></span>
+              <input type="range" id="iconScale" min="30" max="100" value="70">
+            </label>
+            <p class="hint">Icons from <a href="https://lucide.dev" target="_blank" rel="noopener">Lucide</a> (ISC license), bundled with this page. The icon color is the same setting as the text color.</p>
           </div>
         </details>
 
@@ -289,6 +312,7 @@
   <script src="js/lib/shrink.js" defer></script>
   <script src="js/lib/svg.js" defer></script>
   <script src="js/fonts.js" defer></script>
+  <script src="js/icons.js" defer></script>
   <script src="js/draw.js" defer></script>
   <script src="js/outputs.js" defer></script>
   <script src="js/design.js" defer></script>

@@ -1,6 +1,6 @@
 /* A design as data: checking settings, format versions, undo history, share links and export files.
    Pure: no page state. Everything that comes from a link, a file or storage goes through validate() and
-   is treated as untrusted. Depends on Zip (checksum), Fonts (font names), Outputs (text limits). */
+   is treated as untrusted. Depends on Zip (checksum), Fonts (font names), Icons (icon names), Outputs (text limits). */
 const Design = (() => {
   'use strict';
 
@@ -17,7 +17,8 @@ const Design = (() => {
   /** Settings added in format 2, with the values that keep a format 1 design looking the same. */
   const V2_ADDED = Object.freeze({
     shape: 'rounded', bgType: 'solid', bg2: '#073f3c', angle: 135, darkBg2: '#d9d9d9',
-    border: false, borderWidth: 4, borderColor: '#ffffff', offsetX: 0, offsetY: 0
+    border: false, borderWidth: 4, borderColor: '#ffffff', offsetX: 0, offsetY: 0,
+    icon: 'star', iconStroke: 2, iconScale: 70
   });
 
   const DEFAULTS = Object.freeze({
@@ -48,15 +49,18 @@ const Design = (() => {
     borderWidth: 4,
     borderColor: '#ffffff',
     offsetX: 0,
-    offsetY: 0
+    offsetY: 0,
+    icon: 'star',
+    iconStroke: 2,
+    iconScale: 70
   });
 
   const RANGES = {
     textScale: [30, 100], radius: [0, 50], maskPad: [0, 30], pad: [0, 30],
-    angle: [0, 360], borderWidth: [1, 15], offsetX: [-20, 20], offsetY: [-20, 20]
+    angle: [0, 360], borderWidth: [1, 15], offsetX: [-20, 20], offsetY: [-20, 20], iconScale: [30, 100]
   };
   const CHOICES = {
-    mode: ['text', 'image'], emoji: ['system', 'bundled'], fit: ['contain', 'cover'],
+    mode: ['text', 'image', 'icon'], emoji: ['system', 'bundled'], fit: ['contain', 'cover'],
     shape: ['rounded', 'circle', 'squircle', 'square'], bgType: ['solid', 'linear', 'radial']
   };
   const COLORS = ['fg', 'bg', 'bg2', 'darkFg', 'darkBg', 'darkBg2', 'borderColor'];
@@ -90,6 +94,10 @@ const Design = (() => {
       if (own(src, k) && typeof src[k] === 'boolean') out[k] = src[k];
     }
     if (own(src, 'font') && typeof src.font === 'string' && Fonts.key(src.font) === src.font) out.font = src.font;
+    // An icon is stored by name only; whether the set has it is checked when it is drawn.
+    if (own(src, 'icon') && Icons.validName(src.icon)) out.icon = src.icon;
+    const stroke = own(src, 'iconStroke') ? src.iconStroke : undefined;
+    if (typeof stroke === 'number' && stroke >= 0.5 && stroke <= 3 && Number.isInteger(stroke * 4)) out.iconStroke = stroke;
     if (own(src, 'text') && typeof src.text === 'string') {
       out.text = Outputs.clip(src.text.replace(CONTROL, '').normalize('NFC'), Outputs.TEXT_MAX);
     }

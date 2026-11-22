@@ -1,4 +1,4 @@
-/* Icon drawing on <canvas>. Pure: everything it needs comes in through `settings`. Depends on Svg, Fonts, Shrink.
+/* Icon drawing on <canvas>. Pure: everything it needs comes in through `settings`. Depends on Svg, Fonts, Icons, Shrink.
    Fonts must already be loaded (see Fonts.prepare), so nothing is drawn with a fallback font. */
 const Draw = (() => {
   'use strict';
@@ -181,6 +181,33 @@ const Draw = (() => {
     ctx.restore();
   }
 
+  /* ---------- Library icons ---------- */
+
+  /**
+   * Where a library icon goes in a square of `size`: its 24-unit grid scaled by `k` and placed at (x, y),
+   * and its stroke width in grid units. The PNG and SVG outputs both use this.
+   */
+  function iconLayout(size, s) {
+    const box = (size * s.iconScale) / 100;
+    const k = box / Icons.GRID;
+    return { x: (size - box) / 2, y: (size - box) / 2, k, stroke: s.iconStroke };
+  }
+
+  function drawLibraryIcon(ctx, area, s) {
+    const d = Icons.get(s.icon);
+    if (!d) return;
+    const l = iconLayout(area.size, s);
+    ctx.save();
+    ctx.translate(area.x + l.x, area.y + l.y);
+    ctx.scale(l.k, l.k);
+    ctx.lineWidth = l.stroke;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = s.fg;
+    ctx.stroke(new Path2D(d));
+    ctx.restore();
+  }
+
   /* ---------- Maskable icons ---------- */
 
   /** Android keeps the middle circle of a maskable icon: its radius is 40% of the icon (80% across). */
@@ -300,6 +327,7 @@ const Draw = (() => {
     const shift = offsetPx(base.size, s);
     const area = { x: base.x + shift.x, y: base.y + shift.y, size: base.size };
     if (s.mode === 'text') drawText(ctx, area, s);
+    else if (s.mode === 'icon') drawLibraryIcon(ctx, area, s);
     else drawImage(ctx, area, s);
 
     // A border inside the edge of the shape: a stroke twice as wide, with the outer half clipped away.
@@ -320,7 +348,7 @@ const Draw = (() => {
   }
 
   return {
-    icon, render, snapSize, textLayout, imageLayout, borderPx, offsetPx,
+    icon, render, snapSize, textLayout, imageLayout, iconLayout, borderPx, offsetPx,
     maskArea, inSafeZone, maskShape, SAFE_ZONE_RADIUS, MASK_PAD_DEFAULT
   };
 })();

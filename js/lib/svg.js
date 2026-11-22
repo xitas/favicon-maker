@@ -138,6 +138,8 @@ const Svg = (() => {
    * @param {object|null} o.border       { width, color } in view box units, or null
    * @param {string} [o.path]            text outlines, as one path
    * @param {object} [o.image]           { svg: sanitize() result, x, y, size, fit } for an uploaded SVG
+   * @param {object} [o.icon]            { d, x, y, k, stroke } for a library icon: a path on its own grid,
+   *                                     placed at (x, y), scaled by k, stroked with round ends
    */
   function icon(o) {
     const size = o.size;
@@ -156,6 +158,7 @@ const Svg = (() => {
       if (bg && !gradient) out.push('.fm-bg{fill:' + colors.c1 + '}');
       if (gradient) out.push('.fm-s0{stop-color:' + colors.c1 + '}.fm-s1{stop-color:' + colors.c2 + '}');
       if (o.path) out.push('.fm-fg{fill:' + colors.fg + '}');
+      if (o.icon) out.push('.fm-icon{stroke:' + colors.fg + '}');
       return out.join('');
     };
     const light = paint({ c1, c2, fg });
@@ -189,6 +192,13 @@ const Svg = (() => {
         : '<rect class="fm-bg" width="' + s + '" height="' + s + '"/>');
     }
     if (o.path) parts.push('<path class="fm-fg" d="' + o.path + '"/>');
+    if (o.icon) {
+      const ic = o.icon;
+      // The icon path comes from the bundled set; only its own characters are allowed through.
+      const d = String(ic.d).replace(/[^MmLlHhVvCcSsQqTtAaZz0-9.,\s-]/g, '');
+      parts.push('<path class="fm-icon" d="' + d + '" transform="translate(' + num(ic.x) + ' ' + num(ic.y) + ') scale(' + Number(ic.k).toFixed(4).replace(/\.?0+$/, '') +
+        ')" fill="none" stroke-width="' + num(ic.stroke) + '" stroke-linecap="round" stroke-linejoin="round"/>');
+    }
     if (o.image) {
       const im = o.image;
       const vb = im.svg.viewBox.map(num).join(' ');
