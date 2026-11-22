@@ -1,4 +1,4 @@
-/* Icon drawing on <canvas>. Pure: everything it needs comes in through `settings`. Depends on Fonts, Shrink.
+/* Icon drawing on <canvas>. Pure: everything it needs comes in through `settings`. Depends on Svg, Fonts, Shrink.
    Fonts must already be loaded (see Fonts.prepare), so nothing is drawn with a fallback font. */
 const Draw = (() => {
   'use strict';
@@ -231,6 +231,40 @@ const Draw = (() => {
     ctx.closePath();
   }
 
+  /* ---------- Shape, background, border and position ---------- */
+
+  /**
+   * Border width in pixels for an icon of `size`, from a width in % of the icon. It grows with the
+   * icon, but never past a twelfth of it (so small icons aren't swallowed), and is at least 1 px.
+   */
+  function borderPx(size, pct) {
+    return Math.max(1, Math.min((size * pct) / 100, size / 12));
+  }
+
+  /** How far the content moves, in pixels, for an area of `size` and offsets in % (‑20 to 20). */
+  function offsetPx(size, s) {
+    return { x: (size * (s.offsetX || 0)) / 100, y: (size * (s.offsetY || 0)) / 100 };
+  }
+
+  /** The fill for the background: a color, or a gradient across the square. */
+  function backgroundPaint(ctx, size, s, colors) {
+    if (s.bgType === 'linear') {
+      const g = Svg.gradientLine(size, s.angle);
+      const grad = ctx.createLinearGradient(g.x1, g.y1, g.x2, g.y2);
+      grad.addColorStop(0, colors.bg);
+      grad.addColorStop(1, colors.bg2);
+      return grad;
+    }
+    if (s.bgType === 'radial') {
+      const c = size / 2;
+      const grad = ctx.createRadialGradient(c, c, 0, c, c, Svg.radialRadius(size));
+      grad.addColorStop(0, colors.bg);
+      grad.addColorStop(1, colors.bg2);
+      return grad;
+    }
+    return colors.bg;
+  }
+
   /* ---------- Whole icons ---------- */
 
   /** Normalize the variant: 'apple' (also `true`), 'maskable', or 'normal'. */
@@ -249,22 +283,31 @@ const Draw = (() => {
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
 
+    // The same outline favicon.svg uses. The Apple and maskable icons are full squares: the system cuts them.
+    const shape = new Path2D(Svg.shapePath(square ? 'square' : s.shape, size, (size * s.radius) / 100));
     ctx.save();
-    roundedPath(ctx, size, square ? 0 : (size * s.radius) / 100);
-    ctx.clip();
+    ctx.clip(shape);
 
-    if (square) {
-      ctx.fillStyle = s.transparent ? '#ffffff' : s.bg;
+    if (square && s.transparent) {
+      ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, size, size);
     } else if (!s.transparent) {
-      ctx.fillStyle = s.bg;
+      ctx.fillStyle = backgroundPaint(ctx, size, s, { bg: s.bg, bg2: s.bg2 });
       ctx.fillRect(0, 0, size, size);
     }
 
-    const area = kind === 'maskable' ? maskArea(size, s.maskPad) : { x: 0, y: 0, size };
+    const base = kind === 'maskable' ? maskArea(size, s.maskPad) : { x: 0, y: 0, size };
+    const shift = offsetPx(base.size, s);
+    const area = { x: base.x + shift.x, y: base.y + shift.y, size: base.size };
     if (s.mode === 'text') drawText(ctx, area, s);
     else drawImage(ctx, area, s);
 
+    // A border inside the edge of the shape: a stroke twice as wide, with the outer half clipped away.
+    if (!square && s.border) {
+      ctx.lineWidth = borderPx(size, s.borderWidth) * 2;
+      ctx.strokeStyle = s.borderColor;
+      ctx.stroke(shape);
+    }
     ctx.restore();
   }
 
@@ -277,7 +320,7 @@ const Draw = (() => {
   }
 
   return {
-    icon, render, snapSize, textLayout, imageLayout,
+    icon, render, snapSize, textLayout, imageLayout, borderPx, offsetPx,
     maskArea, inSafeZone, maskShape, SAFE_ZONE_RADIUS, MASK_PAD_DEFAULT
   };
 })();

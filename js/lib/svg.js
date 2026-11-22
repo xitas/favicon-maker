@@ -71,46 +71,123 @@ const Svg = (() => {
     return out.join('');
   }
 
+  /* ---------- Shapes and gradients ---------- */
+
+  const SHAPES = ['rounded', 'circle', 'squircle', 'square'];
+  /** Exponent of the squircle: |x|^n + |y|^n = 1. 5 is a smooth, rounded-square look. */
+  const SQUIRCLE_N = 5;
+  const SQUIRCLE_STEPS = 192;
+
+  /**
+   * The icon's outline as SVG path data, in a square of `size`. Both the canvas (through Path2D) and
+   * favicon.svg draw this same path, so their shapes match exactly. `radius` is for the rounded square.
+   */
+  function shapePath(shape, size, radius) {
+    const s = size;
+    const c = s / 2;
+    if (shape === 'circle') {
+      return 'M0 ' + num(c) + 'A' + num(c) + ' ' + num(c) + ' 0 1 1 ' + num(s) + ' ' + num(c) +
+        'A' + num(c) + ' ' + num(c) + ' 0 1 1 0 ' + num(c) + 'Z';
+    }
+    if (shape === 'squircle') {
+      const pts = [];
+      for (let i = 0; i < SQUIRCLE_STEPS; i++) {
+        const t = (i / SQUIRCLE_STEPS) * Math.PI * 2;
+        const cos = Math.cos(t);
+        const sin = Math.sin(t);
+        const x = c + c * Math.sign(cos) * Math.pow(Math.abs(cos), 2 / SQUIRCLE_N);
+        const y = c + c * Math.sign(sin) * Math.pow(Math.abs(sin), 2 / SQUIRCLE_N);
+        pts.push(num(x) + ' ' + num(y));
+      }
+      return 'M' + pts.join('L') + 'Z';
+    }
+    const r = shape === 'rounded' ? Math.min(Math.max(radius || 0, 0), c) : 0;
+    if (r <= 0) return 'M0 0H' + num(s) + 'V' + num(s) + 'H0Z';
+    const R = num(r);
+    const arc = 'A' + R + ' ' + R + ' 0 0 1 ';
+    return 'M' + R + ' 0H' + num(s - r) + arc + num(s) + ' ' + R + 'V' + num(s - r) + arc + num(s - r) + ' ' + num(s) +
+      'H' + R + arc + '0 ' + num(s - r) + 'V' + R + arc + R + ' 0Z';
+  }
+
+  /**
+   * Where a linear gradient runs across a square of `size`, for an angle in degrees as in CSS:
+   * 0 goes up, 90 to the right, 180 down. The line is long enough that the colors reach the corners.
+   */
+  function gradientLine(size, angle) {
+    const a = ((Number(angle) % 360) + 360) % 360 * (Math.PI / 180);
+    const dx = Math.sin(a);
+    const dy = -Math.cos(a);
+    const half = (size / 2) * (Math.abs(dx) + Math.abs(dy));
+    const c = size / 2;
+    return { x1: c - dx * half, y1: c - dy * half, x2: c + dx * half, y2: c + dy * half };
+  }
+
+  /** Radius of a radial gradient from the center to the corners. */
+  const radialRadius = (size) => size / Math.SQRT2;
+
   /* ---------- The icon document ---------- */
 
   /**
    * Build favicon.svg.
    * @param {object} o
-   * @param {number} o.size          view box size (the icon is square)
-   * @param {number} o.radius        corner radius in view box units
-   * @param {string|null} o.background   #rrggbb, or null for transparent
-   * @param {string} o.foreground    #rrggbb for text
-   * @param {{background: string, foreground: string}|null} o.dark   colors for dark mode, or null
-   * @param {string} [o.path]        text outlines, as one path
-   * @param {object} [o.image]       { svg: sanitize() result, x, y, size, fit } for an uploaded SVG
+   * @param {number} o.size              view box size (the icon is square)
+   * @param {string} o.shape             outline, from shapePath()
+   * @param {object|null} o.background   null for transparent, or { type: 'solid'|'linear'|'radial', color, color2, angle }
+   * @param {string} o.foreground        #rrggbb for the text
+   * @param {object|null} o.dark         { background, background2, foreground } colors for dark mode, or null
+   * @param {object|null} o.border       { width, color } in view box units, or null
+   * @param {string} [o.path]            text outlines, as one path
+   * @param {object} [o.image]           { svg: sanitize() result, x, y, size, fit } for an uploaded SVG
    */
   function icon(o) {
     const size = o.size;
-    const r = Math.min(Math.max(o.radius || 0, 0), size / 2);
-    const bg = o.background ? color(o.background, '#ffffff') : null;
+    const s = num(size);
+    const shape = o.shape || shapePath('square', size, 0);
+    const bg = o.background;
+    const c1 = bg ? color(bg.color, '#ffffff') : null;
+    const c2 = bg ? color(bg.color2, c1) : null;
+    const gradient = bg && (bg.type === 'linear' || bg.type === 'radial');
     const fg = color(o.foreground, '#000000');
+
+    // Colors go in a style sheet, so dark mode can switch them.
     const rules = [];
-    if (bg) rules.push('.fm-bg{fill:' + bg + '}');
-    if (o.path) rules.push('.fm-fg{fill:' + fg + '}');
+    const paint = (colors) => {
+      const out = [];
+      if (bg && !gradient) out.push('.fm-bg{fill:' + colors.c1 + '}');
+      if (gradient) out.push('.fm-s0{stop-color:' + colors.c1 + '}.fm-s1{stop-color:' + colors.c2 + '}');
+      if (o.path) out.push('.fm-fg{fill:' + colors.fg + '}');
+      return out.join('');
+    };
+    const light = paint({ c1, c2, fg });
+    if (light) rules.push(light);
     if (o.dark) {
-      const dark = [];
-      if (bg) dark.push('.fm-bg{fill:' + color(o.dark.background, bg) + '}');
-      if (o.path) dark.push('.fm-fg{fill:' + color(o.dark.foreground, fg) + '}');
-      if (dark.length) rules.push('@media (prefers-color-scheme:dark){' + dark.join('') + '}');
+      const dark = paint({
+        c1: color(o.dark.background, c1), c2: color(o.dark.background2, c2), fg: color(o.dark.foreground, fg)
+      });
+      if (dark) rules.push('@media (prefers-color-scheme:dark){' + dark + '}');
     }
 
-    const s = num(size);
     const parts = [
       '<svg xmlns="' + SVG_NS + '" xmlns:xlink="' + XLINK_NS + '" viewBox="0 0 ' + s + ' ' + s + '" width="' + s + '" height="' + s + '">'
     ];
     if (rules.length) parts.push('<style>' + rules.join('') + '</style>');
-    if (r > 0) {
-      parts.push('<defs><clipPath id="fm-0shape"><rect width="' + s + '" height="' + s + '" rx="' + num(r) + '"/></clipPath></defs>');
-      parts.push('<g clip-path="url(#fm-0shape)">');
-    } else {
-      parts.push('<g>');
+    const defs = ['<clipPath id="fm-0shape"><path d="' + shape + '"/></clipPath>'];
+    const stops = '<stop offset="0" class="fm-s0"/><stop offset="1" class="fm-s1"/>';
+    if (gradient && bg.type === 'linear') {
+      const g = gradientLine(size, bg.angle);
+      defs.push('<linearGradient id="fm-0bg" gradientUnits="userSpaceOnUse" x1="' + num(g.x1) + '" y1="' + num(g.y1) +
+        '" x2="' + num(g.x2) + '" y2="' + num(g.y2) + '">' + stops + '</linearGradient>');
+    } else if (gradient) {
+      defs.push('<radialGradient id="fm-0bg" gradientUnits="userSpaceOnUse" cx="' + num(size / 2) + '" cy="' + num(size / 2) +
+        '" r="' + num(radialRadius(size)) + '">' + stops + '</radialGradient>');
     }
-    if (bg) parts.push('<rect class="fm-bg" width="' + s + '" height="' + s + '"/>');
+    parts.push('<defs>' + defs.join('') + '</defs>');
+    parts.push('<g clip-path="url(#fm-0shape)">');
+    if (bg) {
+      parts.push(gradient
+        ? '<rect width="' + s + '" height="' + s + '" fill="url(#fm-0bg)"/>'
+        : '<rect class="fm-bg" width="' + s + '" height="' + s + '"/>');
+    }
     if (o.path) parts.push('<path class="fm-fg" d="' + o.path + '"/>');
     if (o.image) {
       const im = o.image;
@@ -118,6 +195,10 @@ const Svg = (() => {
       const fit = im.fit === 'cover' ? 'xMidYMid slice' : 'xMidYMid meet';
       parts.push('<svg x="' + num(im.x) + '" y="' + num(im.y) + '" width="' + num(im.size) + '" height="' + num(im.size) +
         '" viewBox="' + vb + '" preserveAspectRatio="' + fit + '" overflow="hidden"' + im.svg.rootAttrs + '>' + im.svg.inner + '</svg>');
+    }
+    // The border follows the shape inside its edge: a stroke twice as wide, half of it clipped away.
+    if (o.border) {
+      parts.push('<path d="' + shape + '" fill="none" stroke="' + color(o.border.color, '#ffffff') + '" stroke-width="' + num(o.border.width * 2) + '"/>');
     }
     parts.push('</g></svg>');
     return parts.join('') + '\n';
@@ -282,5 +363,5 @@ const Svg = (() => {
     return { standalone, inner, rootAttrs, viewBox };
   }
 
-  return { glyphPath, icon, sanitize, cleanCss, num, color };
+  return { glyphPath, icon, sanitize, cleanCss, num, color, shapePath, gradientLine, radialRadius, SHAPES };
 })();

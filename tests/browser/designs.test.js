@@ -424,8 +424,8 @@ for (const target of targets()) {
         link = await first.page.inputValue('#shareUrl');
         assert.equal(await first.page.evaluate(() => window.__copied), link);
         assert.equal(await first.page.locator('#shareNote').textContent(), 'Link copied.');
-        if (target.label === 'file://') assert.ok(link.startsWith('https://xitas.github.io/favicon-maker/#d1='), link);
-        else assert.ok(link.startsWith(url + '#d1='), link);
+        if (target.label === 'file://') assert.ok(link.startsWith('https://xitas.github.io/favicon-maker/#d' + Design.FORMAT + '='), link);
+        else assert.ok(link.startsWith(url + '#d' + Design.FORMAT + '='), link);
       } finally {
         await first.context.close();
       }
@@ -560,7 +560,7 @@ describe('collapsible sections in the controls panel', () => {
     const { context, page } = await openApp(browser, url);
     try {
       assert.deepEqual(await openState(page), {
-        secSource: true, textPanel: true, imagePanel: true, secShape: true, secDark: false, secSite: false
+        secSource: true, textPanel: true, imagePanel: true, secShape: true, secBorder: false, secPosition: false, secDark: false, secSite: false
       });
       assert.equal(await page.locator('#imagePanel').isVisible(), false, 'the image section only shows in image mode');
       assert.equal(await page.locator('#dark').isVisible(), false);
@@ -581,7 +581,7 @@ describe('collapsible sections in the controls panel', () => {
       await page.reload();
       await page.waitForFunction(() => document.documentElement.dataset.ready === '1');
       assert.deepEqual(await openState(page), {
-        secSource: true, textPanel: true, imagePanel: true, secShape: false, secDark: true, secSite: false
+        secSource: true, textPanel: true, imagePanel: true, secShape: false, secBorder: false, secPosition: false, secDark: true, secSite: false
       });
     } finally {
       await context.close();

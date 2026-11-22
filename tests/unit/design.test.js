@@ -20,7 +20,8 @@ test('validate keeps every valid setting', () => {
   const good = {
     mode: 'image', text: 'AB', font: 'serif', bold: false, emoji: 'bundled', textScale: 30, fg: '#112233', bg: '#AABBCC',
     transparent: true, radius: 50, maskPad: 0, dark: true, darkFg: '#000000', darkBg: '#ffffff', fit: 'cover', pad: 30,
-    appName: 'Café 😀', basePath: '/repo/'
+    appName: 'Café 😀', basePath: '/repo/', shape: 'squircle', bgType: 'radial', bg2: '#101010', angle: 360,
+    darkBg2: '#202020', border: true, borderWidth: 15, borderColor: '#303030', offsetX: -20, offsetY: 20
   };
   assert.deepEqual(plain(Design.validate(good)), { ...good, bg: '#aabbcc' });
 });
@@ -44,7 +45,17 @@ test('validate: each invalid value falls back to its default', async (t) => {
     fit: ['fill', ''],
     pad: [99, -1],
     appName: [42, '', '   ', '\u0000\u0001'],
-    basePath: [7, 'x'.repeat(201)]
+    basePath: [7, 'x'.repeat(201)],
+    shape: ['triangle', 'Circle', 1, null],
+    bgType: ['gradient', 'conic', true],
+    bg2: ['blue', '#12'],
+    angle: [-1, 361, 45.5, '90'],
+    darkBg2: ['#gggggg'],
+    border: ['yes', 1],
+    borderWidth: [0, 16, 2.5, '4'],
+    borderColor: ['white', '#fff'],
+    offsetX: [-21, 21, 0.5, '0'],
+    offsetY: [100, -100, null]
   };
   for (const [key, values] of Object.entries(bad)) {
     for (const value of values) {
@@ -108,11 +119,33 @@ test('migrate: a bare settings object (format 0) becomes the current format', ()
   assert.equal(d.image, null);
 });
 
+test('migrate: format 1 becomes format 2 and looks the same', () => {
+  const d = Design.migrate({ format: 1, settings: { text: 'Q', radius: 5, bg: '#123456', transparent: true } });
+  assert.equal(d.format, 2);
+  assert.deepEqual(plain(d.settings), { ...D, text: 'Q', radius: 5, bg: '#123456', transparent: true,
+    shape: 'rounded', bgType: 'solid', border: false, offsetX: 0, offsetY: 0 });
+});
+
+test('migrate: format 1 settings that are missing get the format 1 defaults, unknown keys are dropped', () => {
+  const d = Design.migrate({ format: 1, settings: { radius: 9, shape: 'circle', border: true, extra: 1 } });
+  for (const [k, v] of Object.entries(Design.V1_DEFAULTS)) if (k !== 'radius') assert.equal(d.settings[k], v, k);
+  assert.equal(d.settings.shape, 'rounded', 'format 1 had no shape: it stays the rounded square');
+  assert.equal(d.settings.border, false);
+  assert.equal(d.settings.extra, undefined);
+  assert.equal(Design.migrate({ format: 1, settings: null }).settings.text, 'F');
+  assert.equal(Design.migrate({ format: 1, settings: JSON.parse('{"__proto__": {"text": "X"}}') }).settings.text, 'F');
+});
+
+test('migrate: the image comes through every step', () => {
+  const image = { type: 'image/png', bytes: new Uint8Array([1]) };
+  assert.equal(Design.migrate({ format: 1, settings: {}, image }).image, image);
+});
+
 test('migrate: the current format passes through, missing settings get defaults', () => {
-  const d = Design.migrate({ format: 1, settings: { radius: 5 } });
+  const d = Design.migrate({ format: 2, settings: { radius: 5 } });
   assert.equal(d.settings.radius, 5);
   assert.equal(d.settings.maskPad, 10);
-  assert.deepEqual(plain(Design.migrate({ format: 1 }).settings), D);
+  assert.deepEqual(plain(Design.migrate({ format: 2 }).settings), D);
 });
 
 test('migrate refuses a newer format and things that are not designs', () => {
@@ -191,7 +224,7 @@ const SETTINGS = Design.validate({ text: '👍🏽Ab', font: 'handwritten', bg: 
 for (const [label, Lib] of [['compressed', Design], ['uncompressed (no CompressionStream)', Plain]]) {
   test(`share link round trip, ${label}`, async () => {
     const hash = await Lib.encodeHash(SETTINGS, null);
-    assert.match(hash, Lib === Design ? /^#d1=[0-9a-f]{8}\.[A-Za-z0-9_-]+$/ : /^#d1r=[0-9a-f]{8}\.[A-Za-z0-9_-]+$/);
+    assert.match(hash, Lib === Design ? /^#d2=[0-9a-f]{8}\.[A-Za-z0-9_-]+$/ : /^#d2r=[0-9a-f]{8}\.[A-Za-z0-9_-]+$/);
     assert.equal(Lib.isShareHash(hash), true);
     const d = await Lib.decodeHash(hash);
     assert.deepEqual(plain(d.settings), plain(SETTINGS));
@@ -263,6 +296,38 @@ test('unsafe settings in a link are replaced by defaults', async () => {
   assert.equal(d.settings.text, '<im', 'kept only as plain text, cut to 3 characters');
 });
 
+/** A share link as format 1 wrote it: only changes from the format 1 defaults, prefix #d1r=. */
+async function formatOneLink(settings) {
+  const { Zip } = loadScripts();
+  const json = new TextEncoder().encode(JSON.stringify({ f: 1, s: settings }));
+  const sum = (Zip.crc32(json) >>> 0).toString(16).padStart(8, '0');
+  return '#d1r=' + sum + '.' + Design.toBase64Url(json);
+}
+
+test('a format 1 share link still opens, looking the same', async () => {
+  const d = await Design.decodeHash(await formatOneLink({ text: 'Hi', radius: 30, dark: true }));
+  assert.equal(d.settings.text, 'Hi');
+  assert.equal(d.settings.radius, 30);
+  assert.equal(d.settings.dark, true);
+  assert.equal(d.settings.shape, 'rounded');
+  assert.equal(d.settings.bgType, 'solid');
+  assert.equal(d.settings.border, false);
+  // A compressed format 1 link too.
+  const { Zip } = loadScripts();
+  const json = new TextEncoder().encode(JSON.stringify({ f: 1, s: { text: 'Z' } }));
+  const sum = (Zip.crc32(json) >>> 0).toString(16).padStart(8, '0');
+  const body = new Uint8Array(await new Response(new Blob([json]).stream().pipeThrough(new CompressionStream('deflate-raw'))).arrayBuffer());
+  assert.equal((await Design.decodeHash('#d1=' + sum + '.' + Design.toBase64Url(body))).settings.text, 'Z');
+});
+
+test('a format 1 exported file still opens', () => {
+  const file = JSON.stringify({ app: 'favicon-maker', format: 1, name: 'Old', saved: '2026-11-22T00:00:00Z', settings: { ...Design.V1_DEFAULTS, text: 'O', radius: 3 }, image: null });
+  const d = Design.fromExport(file);
+  assert.equal(d.settings.text, 'O');
+  assert.equal(d.settings.radius, 3);
+  assert.equal(d.settings.shape, 'rounded');
+});
+
 test('isShareHash', () => {
   for (const yes of ['#d1=x', '#d1r=x', '#d2=x']) assert.equal(Design.isShareHash(yes), true, yes);
   for (const no of ['', '#', '#top', '#d=1', 'd1=x', null]) assert.equal(Design.isShareHash(no), false, String(no));
@@ -271,7 +336,7 @@ test('isShareHash', () => {
 test('shareLink leaves out an image that makes the link too long', async () => {
   const small = await Design.shareLink('https://example.com/app/#old', SETTINGS, { type: 'image/png', bytes: PNG });
   assert.equal(small.imageLeftOut, false);
-  assert.ok(small.url.startsWith('https://example.com/app/#d1='));
+  assert.ok(small.url.startsWith('https://example.com/app/#d2='));
   // Random bytes don't compress: 8 KB of them can never fit in an 8,000-character link.
   let seed = 12345;
   const noise = new Uint8Array(8000).map(() => { seed ^= seed << 13; seed ^= seed >>> 17; seed ^= seed << 5; return seed & 255; });

@@ -101,12 +101,63 @@
         <details class="section" id="secShape" open>
           <summary>Shape and background</summary>
           <div class="section-body">
-            <label class="color" for="bg">Background color <input type="color" id="bg" value="#0b7a75"></label>
-            <label class="check" for="transparent"><input type="checkbox" id="transparent"> Transparent background</label>
-            <label class="col" for="radius">
+            <label class="col" for="shape">Shape
+              <select id="shape">
+                <option value="rounded">Rounded square</option>
+                <option value="circle">Circle</option>
+                <option value="squircle">Squircle</option>
+                <option value="square">Square</option>
+              </select>
+            </label>
+            <label class="col" for="radius" id="radiusField">
               <span class="row">Corner radius <output id="radiusOut" for="radius">22%</output></span>
               <input type="range" id="radius" min="0" max="50" value="22">
             </label>
+            <label class="col" for="bgType">Background
+              <select id="bgType">
+                <option value="solid">Solid color</option>
+                <option value="linear">Linear gradient</option>
+                <option value="radial">Radial gradient</option>
+              </select>
+            </label>
+            <label class="color" for="bg"><span id="bgLabel">Background color</span> <input type="color" id="bg" value="#0b7a75"></label>
+            <label class="color" for="bg2" id="bg2Field" hidden>Second color <input type="color" id="bg2" value="#073f3c"></label>
+            <label class="col" for="angle" id="angleField" hidden>
+              <span class="row">Angle <output id="angleOut" for="angle">135°</output></span>
+              <input type="range" id="angle" min="0" max="360" step="5" value="135">
+            </label>
+            <label class="check" for="transparent"><input type="checkbox" id="transparent"> Transparent background</label>
+          </div>
+        </details>
+
+        <details class="section" id="secBorder">
+          <summary>Border</summary>
+          <div class="section-body">
+            <label class="check" for="border"><input type="checkbox" id="border" aria-controls="borderFields"> Add a border</label>
+            <div id="borderFields" class="group-inner" hidden>
+              <label class="col" for="borderWidth">
+                <span class="row">Border width <output id="borderWidthOut" for="borderWidth">4%</output></span>
+                <input type="range" id="borderWidth" min="1" max="15" value="4" aria-describedby="borderHint">
+              </label>
+              <label class="color" for="borderColor">Border color <input type="color" id="borderColor" value="#ffffff"></label>
+              <p id="borderHint" class="hint">A share of the icon size, so it looks the same at every size. Small icons keep a thin border of at least 1 px.</p>
+            </div>
+          </div>
+        </details>
+
+        <details class="section" id="secPosition">
+          <summary>Position</summary>
+          <div class="section-body">
+            <label class="col" for="offsetX">
+              <span class="row">Move left or right <output id="offsetXOut" for="offsetX">0%</output></span>
+              <input type="range" id="offsetX" min="-20" max="20" value="0">
+            </label>
+            <label class="col" for="offsetY">
+              <span class="row">Move up or down <output id="offsetYOut" for="offsetY">0%</output></span>
+              <input type="range" id="offsetY" min="-20" max="20" value="0">
+            </label>
+            <div><button id="centerOffsets" class="btn ghost small" type="button">Center again</button></div>
+            <p class="hint">Some letters and logos look off-center even when they are centered. Nudge them here.</p>
           </div>
         </details>
 
@@ -116,7 +167,8 @@
             <label class="check" for="dark"><input type="checkbox" id="dark" aria-controls="darkColors"> Different colors in dark mode</label>
             <div id="darkColors" class="group-inner" hidden>
               <label class="color" for="darkFg" id="darkFgLabel">Dark mode text color <input type="color" id="darkFg" value="#0b7a75"></label>
-              <label class="color" for="darkBg">Dark mode background color <input type="color" id="darkBg" value="#ffffff"></label>
+              <label class="color" for="darkBg"><span id="darkBgLabel">Dark mode background color</span> <input type="color" id="darkBg" value="#ffffff"></label>
+              <label class="color" for="darkBg2" id="darkBg2Field" hidden>Dark mode second color <input type="color" id="darkBg2" value="#d9d9d9"></label>
             </div>
             <p class="hint">Only favicon.svg can change in dark mode, so the dark browser tab in the preview shows these colors. The PNG and ICO files keep the normal colors.</p>
           </div>

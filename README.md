@@ -7,7 +7,7 @@ A favicon generator built with plain HTML, CSS and JavaScript. Make an icon from
 ## Features
 
 - **Two sources:** type up to 3 letters or emoji, or upload an image (PNG, JPG, SVG, WebP)
-- **Design controls:** 8 bundled fonts, bold, text size and color, background color, transparent background, corner radius, and optional different colors in dark mode
+- **Design controls:** 8 bundled fonts, bold, text size and color; a rounded square, circle, squircle or square shape; a solid, linear gradient or radial gradient background, or none; an optional border; position fine-tuning; and optional different colors in dark mode
 - **Emoji style:** this device's emoji, or the same emoji everywhere with a bundled emoji font
 - **Live preview:** browser tab mockups (light and dark), the icon at 16, 32, 48, 180 and 512 px, and the Android maskable icon cut to the circle, squircle, rounded square and teardrop shapes, with an optional safe zone overlay
 - **All the files you need:**
@@ -119,6 +119,8 @@ The icon paths inside `site.webmanifest` are relative to the manifest, so they w
 - Each size is drawn on its own `<canvas>`, so small sizes are drawn directly at that size instead of being shrunk from a large image. This keeps 16 px icons sharp.
 - A large uploaded image is shrunk in steps, halving each time, before the last small step to the icon size. This keeps detail from turning jagged at 16, 32 and 48 px. It works in premultiplied alpha, so transparent edges get no dark fringe. SVG uploads are drawn straight at each size.
 - `favicon.ico` is built in the browser from PNG images at 16, 32 and 48 px.
+- The shape, background and border are drawn from the same outline in every file: the PNGs draw it on a canvas and `favicon.svg` holds it as a vector path, with real SVG gradients. The Apple touch icon and the maskable icons stay full squares without a border, because the system cuts them to its own shape.
+- The border width is a share of the icon size, so it looks the same at every size, but never more than a twelfth of the icon and at least 1 px, so a 16 px icon keeps a thin, visible border.
 - `favicon.svg` works without any font, because browsers don't load other files for an SVG favicon. Text is turned into outlines from glyph data made from the bundled fonts, placed exactly where the PNGs draw it. An uploaded SVG is used as it is, inside the background, corners and padding, after anything that could run code or load other files has been removed: scripts, event attributes such as `onload`, `<foreignObject>`, outside links and references, animations and style imports.
 - There is no `favicon.svg` for emoji or for characters outside the chosen font (they come from your system's fonts), or for PNG, JPG and WebP uploads. The file list says why, and browsers use the PNG files.
 - With **Different colors in dark mode**, `favicon.svg` holds both color sets and switches with `prefers-color-scheme`. PNG and ICO files can't switch, so they keep the normal colors.

@@ -5,7 +5,20 @@ const Design = (() => {
   'use strict';
 
   /** Format version of stored designs, exported files and share links. Bump it with a migration. */
-  const FORMAT = 1;
+  const FORMAT = 2;
+
+  /** The settings of format 1, with their defaults then. Old share links only hold changes from these. */
+  const V1_DEFAULTS = Object.freeze({
+    mode: 'text', text: 'F', font: 'sans', bold: true, emoji: 'system', textScale: 70, fg: '#ffffff', bg: '#0b7a75',
+    transparent: false, radius: 22, maskPad: 10, dark: false, darkFg: '#0b7a75', darkBg: '#ffffff', fit: 'contain',
+    pad: 0, appName: 'My App', basePath: '/'
+  });
+
+  /** Settings added in format 2, with the values that keep a format 1 design looking the same. */
+  const V2_ADDED = Object.freeze({
+    shape: 'rounded', bgType: 'solid', bg2: '#073f3c', angle: 135, darkBg2: '#d9d9d9',
+    border: false, borderWidth: 4, borderColor: '#ffffff', offsetX: 0, offsetY: 0
+  });
 
   const DEFAULTS = Object.freeze({
     mode: 'text',
@@ -25,13 +38,29 @@ const Design = (() => {
     fit: 'contain',
     pad: 0,
     appName: 'My App',
-    basePath: '/'
+    basePath: '/',
+    shape: 'rounded',
+    bgType: 'solid',
+    bg2: '#073f3c',
+    angle: 135,
+    darkBg2: '#d9d9d9',
+    border: false,
+    borderWidth: 4,
+    borderColor: '#ffffff',
+    offsetX: 0,
+    offsetY: 0
   });
 
-  const RANGES = { textScale: [30, 100], radius: [0, 50], maskPad: [0, 30], pad: [0, 30] };
-  const CHOICES = { mode: ['text', 'image'], emoji: ['system', 'bundled'], fit: ['contain', 'cover'] };
-  const COLORS = ['fg', 'bg', 'darkFg', 'darkBg'];
-  const FLAGS = ['bold', 'transparent', 'dark'];
+  const RANGES = {
+    textScale: [30, 100], radius: [0, 50], maskPad: [0, 30], pad: [0, 30],
+    angle: [0, 360], borderWidth: [1, 15], offsetX: [-20, 20], offsetY: [-20, 20]
+  };
+  const CHOICES = {
+    mode: ['text', 'image'], emoji: ['system', 'bundled'], fit: ['contain', 'cover'],
+    shape: ['rounded', 'circle', 'squircle', 'square'], bgType: ['solid', 'linear', 'radial']
+  };
+  const COLORS = ['fg', 'bg', 'bg2', 'darkFg', 'darkBg', 'darkBg2', 'borderColor'];
+  const FLAGS = ['bold', 'transparent', 'dark', 'border'];
   const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/svg+xml'];
   const IMAGE_MAX_BYTES = 10 * 1024 * 1024;
   const APP_NAME_MAX = 45;
@@ -149,7 +178,17 @@ const Design = (() => {
    * Throws for anything that isn't a design, or a format newer than this page knows.
    */
   const MIGRATIONS = {
-    0: (d) => ({ format: 1, settings: d, image: null })
+    0: (d) => ({ format: 1, settings: d, image: null }),
+    // Format 2 added shapes, gradients, a border and position offsets. Format 1 settings that are missing
+    // (links only kept changes from the defaults) get the format 1 defaults, and the new ones get values
+    // that look exactly as before. Only known keys are copied, so nothing else comes along.
+    1: (d) => {
+      const src = d.settings !== null && typeof d.settings === 'object' && !Array.isArray(d.settings) ? d.settings : {};
+      const settings = {};
+      for (const k of Object.keys(V1_DEFAULTS)) settings[k] = own(src, k) ? src[k] : V1_DEFAULTS[k];
+      for (const k of Object.keys(V2_ADDED)) settings[k] = V2_ADDED[k];
+      return { format: 2, settings, image: d.image || null };
+    }
   };
 
   function migrate(doc) {
@@ -355,7 +394,7 @@ const Design = (() => {
   }
 
   return {
-    FORMAT, DEFAULTS, LINK_LIMIT, IMAGE_TYPES,
+    FORMAT, DEFAULTS, V1_DEFAULTS, LINK_LIMIT, IMAGE_TYPES,
     validate, same, changes, validateImage, migrate, History,
     encodeHash, decodeHash, shareLink, isShareHash, toExport, fromExport,
     toBase64, fromBase64, toBase64Url, fromBase64Url

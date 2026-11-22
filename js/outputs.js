@@ -147,6 +147,7 @@ const Outputs = (() => {
   async function textPath(s) {
     const t = Draw.textLayout(SVG_SIZE, s);
     if (!t) return '';
+    const shift = Draw.offsetPx(SVG_SIZE, s);
     const w = Fonts.weight(s.font, s.bold);
     const data = await Fonts.loadGlyphs(s.font, w);
     // Where each character starts: the width of the text up to and including it, minus its own width.
@@ -161,7 +162,7 @@ const Outputs = (() => {
       const x = ctx.measureText(prefix).width - ctx.measureText(ch).width;
       const glyph = data.glyphs[ch.codePointAt(0)];
       if (glyph === undefined) throw new Error(SVG_NOTES.chars);
-      d += Svg.glyphPath(glyph, scale, t.x + x, t.y);
+      d += Svg.glyphPath(glyph, scale, t.x + shift.x + x, t.y + shift.y);
     }
     return d;
   }
@@ -170,16 +171,19 @@ const Outputs = (() => {
   async function svgText(s) {
     const status = svgStatus(s);
     if (!status.ok) throw new Error(status.reason);
+    // The same shape, background, border and position as the PNG files, at 512 px.
     const o = {
       size: SVG_SIZE,
-      radius: (SVG_SIZE * s.radius) / 100,
-      background: s.transparent ? null : s.bg,
+      shape: Svg.shapePath(s.shape, SVG_SIZE, (SVG_SIZE * s.radius) / 100),
+      background: s.transparent ? null : { type: s.bgType, color: s.bg, color2: s.bg2, angle: s.angle },
       foreground: s.fg,
-      dark: s.dark ? { background: s.darkBg, foreground: s.darkFg } : null
+      dark: s.dark ? { background: s.darkBg, background2: s.darkBg2, foreground: s.darkFg } : null,
+      border: s.border ? { width: Draw.borderPx(SVG_SIZE, s.borderWidth), color: s.borderColor } : null
     };
     if (s.mode === 'image') {
       const l = Draw.imageLayout(SVG_SIZE, s, s.imageSvg.viewBox[2], s.imageSvg.viewBox[3]);
-      o.image = { svg: s.imageSvg, x: l.clip.x, y: l.clip.y, size: l.clip.size, fit: s.fit };
+      const shift = Draw.offsetPx(SVG_SIZE, s);
+      o.image = { svg: s.imageSvg, x: l.clip.x + shift.x, y: l.clip.y + shift.y, size: l.clip.size, fit: s.fit };
     } else {
       o.path = await textPath(s);
     }

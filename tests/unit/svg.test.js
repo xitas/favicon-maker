@@ -40,9 +40,76 @@ test('glyphPath rounds to 2 decimals and rejects bad data', () => {
   assert.equal(Svg.glyphPath('', 1, 0, 0), '');
 });
 
+/* ---------- Shapes and gradients ---------- */
+
+/** Points of a path made of M, L, H, V and Z (enough for the shapes without arcs). */
+function polygonPoints(d) {
+  const pts = [];
+  let x = 0;
+  let y = 0;
+  for (const [, cmd, args] of d.matchAll(/([MLHVZ])([^MLHVZ]*)/g)) {
+    const n = args.trim() ? args.trim().split(/[\s,]+/).map(Number) : [];
+    if (cmd === 'M' || cmd === 'L') { [x, y] = n; pts.push([x, y]); }
+    if (cmd === 'H') { x = n[0]; pts.push([x, y]); }
+    if (cmd === 'V') { y = n[0]; pts.push([x, y]); }
+  }
+  return pts;
+}
+
+test('shapePath: square, rounded, circle', () => {
+  assert.equal(Svg.shapePath('square', 512, 100), 'M0 0H512V512H0Z');
+  assert.equal(Svg.shapePath('rounded', 512, 0), 'M0 0H512V512H0Z', 'no radius is a square');
+  assert.equal(Svg.shapePath('rounded', 100, 20), 'M20 0H80A20 20 0 0 1 100 20V80A20 20 0 0 1 80 100H20A20 20 0 0 1 0 80V20A20 20 0 0 1 20 0Z');
+  assert.equal(Svg.shapePath('rounded', 100, 999), Svg.shapePath('rounded', 100, 50), 'radius is capped at half the size');
+  assert.equal(Svg.shapePath('circle', 100), 'M0 50A50 50 0 1 1 100 50A50 50 0 1 1 0 50Z');
+  assert.equal(Svg.shapePath('unknown', 100, 10), 'M0 0H100V100H0Z');
+});
+
+test('shapePath: the squircle is a smooth superellipse between a circle and a square', () => {
+  const pts = polygonPoints(Svg.shapePath('squircle', 512));
+  assert.equal(pts.length, 192);
+  const c = 256;
+  for (const [x, y] of pts) {
+    // On the curve |x|^5 + |y|^5 = 1 (within rounding).
+    const v = Math.abs((x - c) / c) ** 5 + Math.abs((y - c) / c) ** 5;
+    assert.ok(Math.abs(v - 1) < 0.02, `point ${x},${y} is on the curve (${v.toFixed(4)})`);
+    assert.ok(x >= 0 && x <= 512 && y >= 0 && y <= 512);
+  }
+  // Touches the middle of each side, and its corner is fuller than a circle's but short of the square's.
+  for (const p of [[512, 256], [256, 512], [0, 256], [256, 0]]) {
+    assert.ok(pts.some(([x, y]) => Math.abs(x - p[0]) < 0.01 && Math.abs(y - p[1]) < 0.01), `touches ${p}`);
+  }
+  const diagonal = Math.max(...pts.map(([x, y]) => Math.hypot(x - c, y - c)));
+  assert.ok(diagonal > 256 * 1.05 && diagonal < 256 * Math.SQRT2 * 0.95, `corner distance ${diagonal.toFixed(1)}`);
+  // Symmetric left and right.
+  for (const [x, y] of pts) assert.ok(pts.some(([a, b]) => Math.abs(a - (512 - x)) < 0.02 && Math.abs(b - y) < 0.02));
+});
+
+test('gradientLine follows CSS angles and reaches the corners', () => {
+  const r = (g) => Object.fromEntries(Object.entries(g).map(([k, v]) => [k, Math.round(v * 1000) / 1000 + 0]));
+  assert.deepEqual(r(Svg.gradientLine(100, 0)), { x1: 50, y1: 100, x2: 50, y2: 0 }, '0 deg goes up');
+  assert.deepEqual(r(Svg.gradientLine(100, 90)), { x1: 0, y1: 50, x2: 100, y2: 50 }, '90 deg goes right');
+  assert.deepEqual(r(Svg.gradientLine(100, 180)), { x1: 50, y1: 0, x2: 50, y2: 100 }, '180 deg goes down');
+  assert.deepEqual(r(Svg.gradientLine(100, 270)), { x1: 100, y1: 50, x2: 0, y2: 50 });
+  assert.deepEqual(r(Svg.gradientLine(100, 360)), r(Svg.gradientLine(100, 0)));
+  // 45 deg: from the bottom-left corner to the top-right corner.
+  assert.deepEqual(r(Svg.gradientLine(100, 45)), { x1: 0, y1: 100, x2: 100, y2: 0 });
+  assert.deepEqual(r(Svg.gradientLine(100, 135)), { x1: 0, y1: 0, x2: 100, y2: 100 });
+  // Any angle: the line passes through the center.
+  for (const a of [10, 77, 200, 333]) {
+    const g = Svg.gradientLine(64, a);
+    assert.ok(Math.abs((g.x1 + g.x2) / 2 - 32) < 1e-9 && Math.abs((g.y1 + g.y2) / 2 - 32) < 1e-9);
+  }
+  assert.ok(Math.abs(Svg.radialRadius(100) - 70.7107) < 1e-4, 'radial reaches the corners');
+});
+
 /* ---------- The icon document ---------- */
 
-const BASE = { size: 512, radius: 112.64, background: '#0b7a75', foreground: '#ffffff', dark: null, path: 'M0 0L10 0L10 10Z' };
+const ROUNDED = Svg.shapePath('rounded', 512, 112.64);
+const BASE = {
+  size: 512, shape: ROUNDED, background: { type: 'solid', color: '#0b7a75', color2: '#073f3c', angle: 135 },
+  foreground: '#ffffff', dark: null, border: null, path: 'M0 0L10 0L10 10Z'
+};
 
 test('icon: valid XML with a 512 view box, the shape and the colors', () => {
   const text = Svg.icon(BASE);
@@ -53,39 +120,67 @@ test('icon: valid XML with a 512 view box, the shape and the colors', () => {
   assert.equal(root.getAttribute('viewBox'), '0 0 512 512');
   assert.equal(root.getAttribute('width'), '512');
   assert.equal(root.getAttribute('height'), '512');
-  assert.equal(doc.getElementsByTagName('clipPath')[0].getElementsByTagName('rect')[0].getAttribute('rx'), '112.64');
-  assert.equal(doc.getElementsByTagName('path')[0].getAttribute('d'), BASE.path);
+  assert.equal(doc.getElementsByTagName('clipPath')[0].getElementsByTagName('path')[0].getAttribute('d'), ROUNDED);
+  assert.equal(Array.from(doc.getElementsByTagName('path')).find((p) => p.getAttribute('class') === 'fm-fg').getAttribute('d'), BASE.path);
   const css = doc.getElementsByTagName('style')[0].textContent;
   assert.match(css, /\.fm-bg\{fill:#0b7a75\}/);
   assert.match(css, /\.fm-fg\{fill:#ffffff\}/);
   assert.doesNotMatch(css, /@media/);
+  assert.equal(doc.getElementsByTagName('linearGradient').length, 0);
 });
 
-test('icon: dark mode colors go in a prefers-color-scheme media query', () => {
-  const doc = parseXml(Svg.icon({ ...BASE, dark: { background: '#111111', foreground: '#EEEEEE' } }));
+test('icon: every shape is the clip path', () => {
+  for (const shape of ['rounded', 'circle', 'squircle', 'square']) {
+    const d = Svg.shapePath(shape, 512, 100);
+    const doc = parseXml(Svg.icon({ ...BASE, shape: d }));
+    assert.equal(doc.getElementsByTagName('clipPath')[0].getElementsByTagName('path')[0].getAttribute('d'), d, shape);
+  }
+});
+
+test('icon: linear and radial gradients are real SVG gradients', () => {
+  const linear = parseXml(Svg.icon({ ...BASE, background: { type: 'linear', color: '#FF0000', color2: '#0000ff', angle: 90 } }));
+  const lg = linear.getElementsByTagName('linearGradient')[0];
+  assert.deepEqual(['gradientUnits', 'x1', 'y1', 'x2', 'y2'].map((a) => lg.getAttribute(a)), ['userSpaceOnUse', '0', '256', '512', '256']);
+  assert.equal(lg.getElementsByTagName('stop').length, 2);
+  const css = linear.getElementsByTagName('style')[0].textContent;
+  assert.match(css, /\.fm-s0\{stop-color:#ff0000\}\.fm-s1\{stop-color:#0000ff\}/);
+  assert.equal(Array.from(linear.getElementsByTagName('rect')).find((r) => r.getAttribute('fill') === 'url(#fm-0bg)') !== undefined, true);
+
+  const radial = parseXml(Svg.icon({ ...BASE, background: { type: 'radial', color: '#ffffff', color2: '#000000' } }));
+  const rg = radial.getElementsByTagName('radialGradient')[0];
+  assert.deepEqual(['cx', 'cy', 'r'].map((a) => rg.getAttribute(a)), ['256', '256', '362.04']);
+});
+
+test('icon: dark mode colors go in a prefers-color-scheme media query, gradients too', () => {
+  const doc = parseXml(Svg.icon({ ...BASE, dark: { background: '#111111', background2: '#222222', foreground: '#EEEEEE' } }));
   const css = doc.getElementsByTagName('style')[0].textContent;
   assert.match(css, /@media \(prefers-color-scheme:dark\)\{\.fm-bg\{fill:#111111\}\.fm-fg\{fill:#eeeeee\}\}$/);
+  const grad = parseXml(Svg.icon({ ...BASE, background: { type: 'radial', color: '#ffffff', color2: '#000000' }, dark: { background: '#111111', background2: '#222222', foreground: '#eeeeee' } }));
+  assert.match(grad.getElementsByTagName('style')[0].textContent, /@media \(prefers-color-scheme:dark\)\{\.fm-s0\{stop-color:#111111\}\.fm-s1\{stop-color:#222222\}\.fm-fg\{fill:#eeeeee\}\}$/);
 });
 
 test('icon: transparent background has no background rectangle', () => {
   const doc = parseXml(Svg.icon({ ...BASE, background: null, dark: { background: '#111111', foreground: '#000000' } }));
-  assert.equal(Array.from(doc.getElementsByTagName('rect')).filter((r) => r.getAttribute('class') === 'fm-bg').length, 0);
+  assert.equal(doc.getElementsByTagName('rect').length, 0);
   const css = doc.getElementsByTagName('style')[0].textContent;
-  assert.doesNotMatch(css, /fm-bg/);
+  assert.doesNotMatch(css, /fm-bg|fm-s0/);
   assert.match(css, /@media \(prefers-color-scheme:dark\)\{\.fm-fg\{fill:#000000\}\}/);
 });
 
-test('icon: no corner radius means no clip path', () => {
-  const doc = parseXml(Svg.icon({ ...BASE, radius: 0 }));
-  assert.equal(doc.getElementsByTagName('clipPath').length, 0);
-  assert.equal(parseXml(Svg.icon({ ...BASE, radius: 9999 })).getElementsByTagName('rect')[0].getAttribute('rx'), '256');
+test('icon: the border follows the shape, twice as wide with the outer half clipped', () => {
+  const d = Svg.shapePath('circle', 512);
+  const doc = parseXml(Svg.icon({ ...BASE, shape: d, border: { width: 20.48, color: '#ABCDEF' } }));
+  const border = Array.from(doc.getElementsByTagName('path')).find((p) => p.getAttribute('stroke'));
+  assert.deepEqual(['d', 'fill', 'stroke', 'stroke-width'].map((a) => border.getAttribute(a)), [d, 'none', '#abcdef', '40.96']);
+  assert.equal(border.parentNode.getAttribute('clip-path'), 'url(#fm-0shape)');
+  assert.equal(parseXml(Svg.icon(BASE)).getElementsByTagName('path').length, 2, 'no border path without a border');
 });
 
 test('icon: colors that are not #rrggbb never reach the style sheet', () => {
-  const text = Svg.icon({ ...BASE, background: 'red}</style><script>alert(1)</script>', foreground: 'url(http://evil.test/x)' });
+  const text = Svg.icon({ ...BASE, background: { type: 'linear', color: 'red}</style><script>alert(1)</script>', color2: 'url(x)', angle: 5 }, foreground: 'url(http://evil.test/x)', border: { width: 4, color: '"/><script>' } });
   parseXml(text);
-  assert.doesNotMatch(text, /script|evil|url\(http/);
-  assert.match(text, /\.fm-bg\{fill:#ffffff\}/);
+  assert.doesNotMatch(text, /script|evil|url\(http|url\(x/);
+  assert.match(text, /\.fm-s0\{stop-color:#ffffff\}/);
 });
 
 test('icon: an uploaded SVG is nested with contain or cover', () => {

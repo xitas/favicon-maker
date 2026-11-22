@@ -64,3 +64,24 @@ test('imageLayout: contain and cover, centered in the padded box', () => {
   const cover = Draw.imageLayout(100, { pad: 0, fit: 'cover' }, 200, 100);
   assert.deepEqual(JSON.parse(JSON.stringify(cover)), { clip: { x: 0, y: 0, size: 100 }, x: -50, y: 0, w: 200, h: 100 });
 });
+
+test('borderPx: grows with the icon, at least 1 px, never more than a twelfth', () => {
+  assert.equal(Draw.borderPx(512, 4), 20.48);
+  assert.equal(Draw.borderPx(16, 4), 1, '0.64 px becomes 1 px');
+  assert.equal(Draw.borderPx(32, 4), 1.28);
+  assert.equal(Draw.borderPx(512, 15), 512 / 12, '15% of 512 is capped');
+  assert.equal(Draw.borderPx(16, 15), 16 / 12, 'a thick border stays thin on a 16 px icon');
+  assert.equal(Draw.borderPx(48, 1), 1);
+  for (const size of [16, 32, 48, 180, 192, 512]) {
+    for (const pct of [1, 4, 8, 15]) {
+      const w = Draw.borderPx(size, pct);
+      assert.ok(w >= 1 && w <= Math.max(1, size / 12), `${size} px at ${pct}%`);
+    }
+  }
+});
+
+test('offsetPx: a share of the area, both ways', () => {
+  assert.deepEqual({ ...Draw.offsetPx(512, { offsetX: 10, offsetY: -5 }) }, { x: 51.2, y: -25.6 });
+  assert.deepEqual({ ...Draw.offsetPx(100, {}) }, { x: 0, y: 0 });
+  assert.deepEqual({ ...Draw.offsetPx(16, { offsetX: -20, offsetY: 20 }) }, { x: -3.2, y: 3.2 });
+});

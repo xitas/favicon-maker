@@ -31,14 +31,20 @@
     share: $('share'), shareBox: $('shareBox'), shareUrl: $('shareUrl'), shareNote: $('shareNote'),
     designName: $('designName'), saveDesign: $('saveDesign'), designsNote: $('designsNote'), undoDelete: $('undoDelete'),
     designs: $('designs'), designsEmpty: $('designsEmpty'), exportDesign: $('exportDesign'), importDesign: $('importDesign'),
-    importFile: $('importFile'), forgetAll: $('forgetAll')
+    importFile: $('importFile'), forgetAll: $('forgetAll'),
+    shape: $('shape'), radiusField: $('radiusField'), bgType: $('bgType'), bgLabel: $('bgLabel'), bg2: $('bg2'), bg2Field: $('bg2Field'),
+    angle: $('angle'), angleOut: $('angleOut'), angleField: $('angleField'), border: $('border'), borderFields: $('borderFields'),
+    borderWidth: $('borderWidth'), borderWidthOut: $('borderWidthOut'), borderColor: $('borderColor'),
+    offsetX: $('offsetX'), offsetXOut: $('offsetXOut'), offsetY: $('offsetY'), offsetYOut: $('offsetYOut'), centerOffsets: $('centerOffsets'),
+    darkBg2: $('darkBg2'), darkBg2Field: $('darkBg2Field'), darkBgLabel: $('darkBgLabel')
   };
   const SECTIONS = Array.from(document.querySelectorAll('.controls details.section'));
 
-  const RANGES = ['textScale', 'pad', 'radius', 'maskPad'];
+  const RANGES = ['textScale', 'pad', 'radius', 'maskPad', 'angle', 'borderWidth', 'offsetX', 'offsetY'];
   const MASK_SHAPES = [['circle', 'Circle'], ['squircle', 'Squircle'], ['rounded', 'Rounded square'], ['teardrop', 'Teardrop']];
   const MASK_PREVIEW = 96;
-  const INPUTS = ['text', 'font', 'bold', 'emoji', 'textScale', 'fg', 'fit', 'pad', 'bg', 'transparent', 'radius', 'maskPad', 'safeZone', 'dark', 'darkFg', 'darkBg', 'appName', 'basePath'];
+  const INPUTS = ['text', 'font', 'bold', 'emoji', 'textScale', 'fg', 'fit', 'pad', 'bg', 'transparent', 'radius', 'maskPad', 'safeZone', 'dark', 'darkFg', 'darkBg', 'appName', 'basePath',
+    'shape', 'bgType', 'bg2', 'angle', 'darkBg2', 'border', 'borderWidth', 'borderColor', 'offsetX', 'offsetY'];
 
   let mode = 'text';
   let image = null;    // loaded HTMLImageElement for image mode
@@ -72,7 +78,17 @@
       fit: el.fit.value,
       pad: Number(el.pad.value),
       appName: el.appName.value.trim() || 'My App',
-      basePath: el.basePath.value
+      basePath: el.basePath.value,
+      shape: el.shape.value,
+      bgType: el.bgType.value,
+      bg2: el.bg2.value,
+      angle: Number(el.angle.value),
+      darkBg2: el.darkBg2.value,
+      border: el.border.checked,
+      borderWidth: Number(el.borderWidth.value),
+      borderColor: el.borderColor.value,
+      offsetX: Number(el.offsetX.value),
+      offsetY: Number(el.offsetY.value)
     };
   }
 
@@ -365,6 +381,20 @@
     el.padOut.textContent = s.pad + '%';
     el.radiusOut.textContent = s.radius + '%';
     el.maskPadOut.textContent = s.maskPad + '%';
+    el.angleOut.textContent = s.angle + '°';
+    el.borderWidthOut.textContent = s.borderWidth + '%';
+    el.offsetXOut.textContent = (s.offsetX > 0 ? '+' : '') + s.offsetX + '%';
+    el.offsetYOut.textContent = (s.offsetY > 0 ? '+' : '') + s.offsetY + '%';
+    const gradient = s.bgType !== 'solid';
+    el.radiusField.hidden = s.shape !== 'rounded';
+    el.bgLabel.textContent = gradient ? 'First color' : 'Background color';
+    el.darkBgLabel.textContent = gradient ? 'Dark mode first color' : 'Dark mode background color';
+    el.bg2Field.hidden = !gradient;
+    el.darkBg2Field.hidden = !gradient;
+    el.angleField.hidden = s.bgType !== 'linear';
+    el.borderFields.hidden = !s.border;
+    el.bgType.disabled = el.bg2.disabled = el.angle.disabled = s.transparent;
+    el.centerOffsets.disabled = s.offsetX === 0 && s.offsetY === 0;
     el.darkColors.hidden = !s.dark;
     el.darkFgLabel.hidden = s.mode !== 'text';
     el.bg.disabled = s.transparent;
@@ -379,7 +409,7 @@
     thumbs.forEach((t) => Draw.icon(t.canvas.getContext('2d'), t.size, s, t.variant));
     // The light browser tab shows the normal colors; the dark one shows the dark mode colors when set.
     Draw.icon(el.tabA.getContext('2d'), 32, s, false);
-    Draw.icon(el.tabB.getContext('2d'), 32, s.dark ? Object.assign({}, s, { fg: s.darkFg, bg: s.darkBg }) : s, false);
+    Draw.icon(el.tabB.getContext('2d'), 32, s.dark ? Object.assign({}, s, { fg: s.darkFg, bg: s.darkBg, bg2: s.darkBg2 }) : s, false);
     Draw.icon(el.heroIcon.getContext('2d'), el.heroIcon.width, s, false);
   }
 
@@ -492,25 +522,15 @@
     applying = true;
     try {
       const s = Design.validate(state.settings);
-      el.text.value = s.text;
+      // Every setting has a form control with the same id (except the source, set by setMode).
+      Object.keys(Design.DEFAULTS).forEach((k) => {
+        if (k === 'mode') return;
+        const input = el[k];
+        if (input.type === 'checkbox') input.checked = s[k];
+        else input.value = String(s[k]);
+      });
       lastText = s.text;
       lastSelection = [s.text.length, s.text.length];
-      el.font.value = s.font;
-      el.bold.checked = s.bold;
-      el.emoji.value = s.emoji;
-      el.textScale.value = String(s.textScale);
-      el.fg.value = s.fg;
-      el.bg.value = s.bg;
-      el.transparent.checked = s.transparent;
-      el.radius.value = String(s.radius);
-      el.maskPad.value = String(s.maskPad);
-      el.dark.checked = s.dark;
-      el.darkFg.value = s.darkFg;
-      el.darkBg.value = s.darkBg;
-      el.fit.value = s.fit;
-      el.pad.value = String(s.pad);
-      el.appName.value = s.appName;
-      el.basePath.value = s.basePath;
       enforceTextLimit();
       setStatus(el.textNote, '', false);
       await useImage(state.image || null);
@@ -987,6 +1007,11 @@
     el.undo.addEventListener('click', () => moveHistory('undo'));
     el.redo.addEventListener('click', () => moveHistory('redo'));
     el.reset.addEventListener('click', resetDesign);
+    el.centerOffsets.addEventListener('click', () => {
+      el.offsetX.value = el.offsetY.value = '0';
+      refresh();
+      onChange(null);
+    });
     document.addEventListener('keydown', onKeyDown);
     el.saveDesign.addEventListener('click', saveDesign);
     el.designName.addEventListener('keydown', (e) => { if (e.key === 'Enter') saveDesign(); });
