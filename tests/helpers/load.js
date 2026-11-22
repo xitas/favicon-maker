@@ -12,7 +12,7 @@ const vm = require('node:vm');
 const ROOT = path.resolve(__dirname, '..', '..');
 
 /** Same order as the <script> tags in index.html (app.js needs a real page, so it is left out). */
-const SCRIPTS = ['js/lib/zip.js', 'js/lib/ico.js', 'js/lib/shrink.js', 'js/lib/svg.js', 'js/fonts.js', 'js/icons.js', 'js/draw.js', 'js/outputs.js', 'js/design.js', 'js/store.js'];
+const SCRIPTS = ['js/lib/zip.js', 'js/lib/ico.js', 'js/lib/shrink.js', 'js/lib/svg.js', 'js/fonts.js', 'js/icons.js', 'js/draw.js', 'js/outputs.js', 'js/design.js', 'js/store.js', 'js/checks.js'];
 
 /**
  * @param {object} [options]
@@ -52,7 +52,7 @@ function loadScripts(options = {}) {
     vm.runInContext(fs.readFileSync(file, 'utf8'), context, { filename: file });
   }
 
-  const exported = vm.runInContext('({ Zip, Ico, Shrink, Svg, Fonts, Icons, Draw, Outputs, Design, Store })', context);
+  const exported = vm.runInContext('({ Zip, Ico, Shrink, Svg, Fonts, Icons, Draw, Outputs, Design, Store, Checks })', context);
   return { ...exported, context };
 }
 

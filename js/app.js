@@ -1,5 +1,5 @@
 /* Page UI: reads the form, keeps previews in sync, wires up downloads, and saves, restores, shares and undoes
-   designs. Depends on Svg, Fonts, Icons, Draw, Outputs, Design, Store, Dialog, Previews. */
+   designs. Depends on Svg, Fonts, Icons, Draw, Outputs, Design, Store, Checks, Dialog, Previews. */
 (function () {
   'use strict';
 
@@ -36,7 +36,7 @@
     borderWidth: $('borderWidth'), borderWidthOut: $('borderWidthOut'), borderColor: $('borderColor'),
     offsetX: $('offsetX'), offsetXOut: $('offsetXOut'), offsetY: $('offsetY'), offsetYOut: $('offsetYOut'), centerOffsets: $('centerOffsets'),
     darkBg2: $('darkBg2'), darkBg2Field: $('darkBg2Field'), darkBgLabel: $('darkBgLabel'),
-    modeIcon: $('modeIcon'), iconPanel: $('iconPanel'), iconSearch: $('iconSearch'), iconCount: $('iconCount'),
+    checks: $('checks'), modeIcon: $('modeIcon'), iconPanel: $('iconPanel'), iconSearch: $('iconSearch'), iconCount: $('iconCount'),
     iconGrid: $('iconGrid'), iconNote: $('iconNote'), iconColor: $('iconColor'),
     iconStroke: $('iconStroke'), iconStrokeOut: $('iconStrokeOut'), iconScale: $('iconScale'), iconScaleOut: $('iconScaleOut')
   };
@@ -457,8 +457,55 @@
     el.snippet.querySelector('code').textContent = Outputs.snippet(s);
   }
 
+  /* ---------- Design checks ---------- */
+  let checksKey = '';
+
+  /** Advice about the design, near the previews. Only redrawn when it changes, so it is announced once. */
+  function updateChecks(s) {
+    const t = s.mode === 'text' ? Draw.textLayout(16, s) : null;
+    const result = Checks.run(s, { textHeight16: t ? t.height : 0 });
+    const key = JSON.stringify(result);
+    if (key === checksKey) return;
+    checksKey = key;
+    const parts = [];
+    if (result.skipped === 'image') {
+      const p = document.createElement('p');
+      p.className = 'check-ok';
+      p.textContent = 'Contrast isn’t checked for uploaded images: their colors vary too much to judge from a few pixels.';
+      parts.push(p);
+    } else if (!result.warnings.length) {
+      const p = document.createElement('p');
+      p.className = 'check-ok';
+      p.textContent = 'Looks good at every size.';
+      parts.push(p);
+    }
+    result.warnings.forEach((w) => {
+      const box = document.createElement('div');
+      box.className = 'check-warn';
+      box.dataset.check = w.id;
+      const p = document.createElement('p');
+      p.textContent = w.text;
+      box.appendChild(p);
+      if (w.action) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'btn ghost small';
+        b.textContent = w.action.label;
+        b.addEventListener('click', () => {
+          el[w.action.field].value = String(w.action.value);
+          refresh();
+          onChange(null); // one undo step
+        });
+        box.appendChild(b);
+      }
+      parts.push(box);
+    });
+    el.checks.replaceChildren(...parts);
+  }
+
   /** Draw every preview with settings whose fonts are loaded. */
   function draw(s) {
+    updateChecks(s);
     Previews.draw(s);
     thumbs.forEach((t) => Draw.icon(t.canvas.getContext('2d'), t.size, s, t.variant));
     Draw.icon(el.heroIcon.getContext('2d'), el.heroIcon.width, s, false);

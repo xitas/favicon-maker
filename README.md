@@ -10,6 +10,7 @@ A favicon generator built with plain HTML, CSS and JavaScript. Make an icon from
 - **Design controls:** 8 bundled fonts, bold, text size and color; a rounded square, circle, squircle or square shape; a solid, linear gradient or radial gradient background, or none; an optional border; position fine-tuning; and optional different colors in dark mode
 - **Emoji style:** this device's emoji, or the same emoji everywhere with a bundled emoji font
 - **Live previews, at real size:** the icon at 16, 32, 48, 180 and 512 px; the Android maskable icon cut to the circle, squircle, rounded square and teardrop shapes, with an optional safe zone overlay; light and dark browser tabs, a bookmarks bar and a search result; and iPhone and Android home screens on a light, dark or colorful wallpaper. Everything around the icon is a plain gray placeholder.
+- **Design checks:** advice when the design may not read well: low contrast (with a Fix contrast button that only changes the lightness of the text or icon color), an icon with no background that vanishes on light or dark tabs, text too small at 16 px, and icon lines too thin at 16 px. Uploaded images are not checked. The checks never block a download.
 - **Pixel zoom:** the 16 px and 32 px icons 8 times larger with sharp pixel edges and an optional pixel grid, exactly as in the files
 - **All the files you need:**
   - `favicon.ico` (16, 32 and 48 px in one file, for older browsers)

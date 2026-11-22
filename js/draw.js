@@ -98,7 +98,12 @@ const Draw = (() => {
     const maxWidth = size * 0.92;
     if ((box.right - box.left) * px > maxWidth) px = maxWidth / (box.right - box.left);
     px = snapSize(px);
-    return { text, px, x: size / 2 - ((box.left + box.right) / 2) * px, y: size / 2 - ((box.top + box.bottom) / 2) * px };
+    return {
+      text, px,
+      x: size / 2 - ((box.left + box.right) / 2) * px,
+      y: size / 2 - ((box.top + box.bottom) / 2) * px,
+      height: (box.bottom - box.top) * px // the ink's height, for the small text check
+    };
   }
 
   function drawText(ctx, area, s) {
