@@ -1,5 +1,5 @@
 /* Page UI: reads the form, keeps previews in sync, wires up downloads, and saves, restores, shares and undoes
-   designs. Depends on Svg, Fonts, Draw, Outputs, Design, Store. */
+   designs. Depends on Svg, Fonts, Draw, Outputs, Design, Store, Dialog. */
 (function () {
   'use strict';
 
@@ -722,13 +722,18 @@
   }
 
   /** Ask before replacing a design that has unsaved changes. */
-  function okToReplace(what) {
+  async function okToReplace(title, openLabel) {
     if (!isDirty()) return true;
-    return window.confirm(what + ' It replaces the current design, which has changes that aren’t saved in My designs.');
+    return Dialog.confirm({
+      title,
+      message: 'It replaces the current design, which has changes that aren’t saved in My designs.',
+      confirmLabel: openLabel,
+      cancelLabel: 'Keep current design'
+    });
   }
 
   async function openDesign(d) {
-    if (keyOf(d.settings, d.imageId ? { id: d.imageId } : null) !== currentKey() && !okToReplace('Open “' + d.name + '”?')) return;
+    if (keyOf(d.settings, d.imageId ? { id: d.imageId } : null) !== currentKey() && !(await okToReplace('Open “' + d.name + '”?', 'Open “' + d.name + '”'))) return;
     const img = d.imageId ? await loadStoredImage(d.imageId) : null;
     await applyState({ settings: d.settings, image: img });
     savedFrom = d.id;
@@ -739,8 +744,8 @@
     setStatus(el.designsNote, d.imageId && !img ? 'Opened “' + d.name + '”, but its image is no longer saved in this browser.' : 'Opened “' + d.name + '”.', !!(d.imageId && !img));
   }
 
-  function renameDesign(d) {
-    const answer = window.prompt('New name for “' + d.name + '”', d.name);
+  async function renameDesign(d) {
+    const answer = await Dialog.prompt({ title: 'Rename “' + d.name + '”', label: 'New name', value: d.name, confirmLabel: 'Rename', maxLength: 80 });
     if (answer === null) return;
     const name = cleanName(answer);
     if (!name) return;
@@ -805,7 +810,7 @@
     } finally {
       el.importFile.value = '';
     }
-    if (!okToReplace('Open the imported design “' + d.name + '”?')) return;
+    if (!(await okToReplace('Open the imported design “' + d.name + '”?', 'Open it'))) return;
     const img = d.image ? Object.assign({}, d.image, { id: Store.newId() }) : null;
     await applyState({ settings: d.settings, image: img });
     savedFrom = null;
@@ -816,7 +821,13 @@
   }
 
   async function forgetAll() {
-    const ok = window.confirm('Forget all saved data? This removes every saved design and the autosaved design from this browser. It can’t be undone.');
+    const ok = await Dialog.confirm({
+      title: 'Forget all saved data?',
+      message: 'This removes every saved design and the autosaved design from this browser. It can’t be undone. Export any design you want to keep first.',
+      confirmLabel: 'Forget everything',
+      cancelLabel: 'Keep my designs',
+      danger: true
+    });
     if (!ok) return;
     clearTimeout(saveTimer);
     await Store.forgetAll();
@@ -880,7 +891,7 @@
         try { Svg.sanitize(new TextDecoder().decode(img.bytes)); } catch (e) { setAppNote(NOTES.incomplete, true); return; }
       }
     }
-    if (keyOf(d.settings, null) !== currentKey() && !okToReplace('Open the shared design?')) {
+    if (keyOf(d.settings, null) !== currentKey() && !(await okToReplace('Open the shared design?', 'Open shared design'))) {
       clearHash();
       return;
     }

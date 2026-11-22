@@ -43,15 +43,17 @@ async function reload(page) {
   await settled(page);
 }
 
-/** Answer the next confirm or prompt dialog. */
-function answerDialog(page, accept, text) {
-  return new Promise((resolve) => {
-    page.once('dialog', async (d) => {
-      const message = d.message();
-      if (accept) await d.accept(text); else await d.dismiss();
-      resolve(message);
-    });
-  });
+/**
+ * Answer the next dialog: wait for it to open, then confirm (typing `text` first for a prompt) or cancel
+ * with Esc. Resolves to its title and message.
+ */
+async function answerDialog(page, accept, text) {
+  await page.waitForSelector('#dialog[open]');
+  const said = await page.evaluate(() => document.getElementById('dialogTitle').textContent + ' ' + document.getElementById('dialogMessage').textContent);
+  if (text !== undefined) await page.fill('#dialogInput', text);
+  if (accept) await page.click('#dialogOk'); else await page.keyboard.press('Escape');
+  await page.waitForSelector('#dialog:not([open])', { state: 'attached' });
+  return said;
 }
 
 const values = (page) => page.evaluate(() => ({
@@ -291,11 +293,9 @@ for (const target of targets()) {
         assert.equal(await page.inputValue('#designName'), 'Renamed <b>one</b>');
 
         // Opening a saved design when nothing changed doesn't ask.
-        let asked = false;
-        page.once('dialog', (d) => { asked = true; d.dismiss(); });
         await page.click('button[aria-label="Open Second"]');
         await settled(page);
-        assert.equal(asked, false);
+        assert.equal(await page.locator('#dialog').getAttribute('open'), null, 'no question asked');
         assert.equal((await values(page)).text, 'B');
 
         // Saved designs survive a reload.
@@ -541,3 +541,108 @@ for (const target of targets()) {
   });
 }
 
+
+/* ---------- Dialogs: keyboard and screen readers ---------- */
+
+describe('custom dialogs', () => {
+  let browser;
+  let url;
+  const target = targets()[1];
+  before(async () => { url = await target.start(); browser = await launch('chromium'); });
+  after(async () => { await browser.close(); await target.stop(); });
+
+  const focusInfo = (page) => page.evaluate(() => {
+    const a = document.activeElement;
+    return { id: a.id, label: a.getAttribute('aria-label'), inDialog: !!a.closest('#dialog') };
+  });
+
+  test('Forget all: modal, labelled, Cancel focused, Esc cancels and focus goes back', async () => {
+    const { context, page } = await openApp(browser, url);
+    try {
+      await page.focus('#forgetAll');
+      await page.keyboard.press('Enter');
+      await page.waitForSelector('#dialog[open]');
+      const a11y = await page.evaluate(() => {
+        const d = document.getElementById('dialog');
+        return {
+          modal: d.matches(':modal'),
+          labelledby: document.getElementById(d.getAttribute('aria-labelledby')).textContent,
+          describedby: document.getElementById(d.getAttribute('aria-describedby')).textContent,
+          ok: document.getElementById('dialogOk').textContent,
+          okDanger: document.getElementById('dialogOk').classList.contains('danger')
+        };
+      });
+      assert.deepEqual(a11y, {
+        modal: true,
+        labelledby: 'Forget all saved data?',
+        describedby: 'This removes every saved design and the autosaved design from this browser. It can’t be undone. Export any design you want to keep first.',
+        ok: 'Forget everything',
+        okDanger: true
+      });
+      assert.deepEqual(await focusInfo(page), { id: 'dialogCancel', label: null, inDialog: true }, 'the safe button has focus');
+      // Tab stays inside the dialog.
+      await page.keyboard.press('Tab');
+      assert.equal((await focusInfo(page)).inDialog, true);
+      await page.keyboard.press('Shift+Tab');
+      await page.keyboard.press('Escape');
+      await page.waitForSelector('#dialog:not([open])', { state: 'attached' });
+      assert.equal((await focusInfo(page)).id, 'forgetAll', 'focus is back on the button that opened it');
+      // Enter on the focused Cancel button cancels too.
+      await page.keyboard.press('Enter');
+      await page.waitForSelector('#dialog[open]');
+      await page.keyboard.press('Enter');
+      await page.waitForSelector('#dialog:not([open])', { state: 'attached' });
+      assert.equal((await focusInfo(page)).id, 'forgetAll');
+    } finally {
+      await context.close();
+    }
+  });
+
+  test('rename: the field has focus, Enter confirms, an empty name is refused', async () => {
+    const { context, page } = await openApp(browser, url);
+    try {
+      await page.fill('#designName', 'Alpha');
+      await page.click('#saveDesign');
+      await page.waitForFunction(() => document.querySelectorAll('#designs li').length === 1);
+      await page.focus('button[aria-label="Rename Alpha"]');
+      await page.keyboard.press('Enter');
+      await page.waitForSelector('#dialog[open]');
+      assert.deepEqual(await focusInfo(page), { id: 'dialogInput', label: null, inDialog: true });
+      assert.equal(await page.locator('#dialogTitle').textContent(), 'Rename “Alpha”');
+      assert.equal(await page.evaluate(() => document.getElementById('dialogInput').labels[0].textContent.trim()), 'New name');
+      await page.keyboard.press('Control+a');
+      await page.keyboard.press('Delete');
+      await page.keyboard.press('Enter');
+      assert.equal(await page.locator('#dialogError').textContent(), 'Enter a name.');
+      assert.equal(await page.locator('#dialogError').getAttribute('role'), 'alert');
+      assert.equal(await page.locator('#dialog').getAttribute('open'), '', 'still open');
+      await page.keyboard.type('Beta');
+      await page.keyboard.press('Enter');
+      await page.waitForSelector('#dialog:not([open])', { state: 'attached' });
+      assert.deepEqual(await page.locator('#designs .name').allTextContents(), ['Beta']);
+    } finally {
+      await context.close();
+    }
+  });
+
+  test('unsaved changes: the main button is focused, and Esc keeps the current design', async () => {
+    const { context, page } = await openApp(browser, url);
+    try {
+      await page.click('#saveDesign');
+      await page.waitForFunction(() => document.querySelectorAll('#designs li').length === 1);
+      await page.fill('#text', 'X');
+      await settled(page);
+      await page.click('#designs button:has-text("Open")');
+      await page.waitForSelector('#dialog[open]');
+      assert.match(await page.locator('#dialogTitle').textContent(), /^Open “Design 1”\?$/);
+      assert.equal((await focusInfo(page)).id, 'dialogOk');
+      assert.equal(await page.locator('#dialogCancel').textContent(), 'Keep current design');
+      await page.keyboard.press('Escape');
+      await page.waitForSelector('#dialog:not([open])', { state: 'attached' });
+      assert.equal(await page.inputValue('#text'), 'X');
+      assert.match((await focusInfo(page)).label || '', /^Open Design 1$/, 'focus is back on the Open button');
+    } finally {
+      await context.close();
+    }
+  });
+});

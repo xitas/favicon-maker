@@ -490,6 +490,28 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
 }
 .text-btn:hover { background: none; text-decoration-thickness: 2px; }
 
+/* Dialogs */
+.dialog {
+  width: min(440px, calc(100vw - 32px));
+  padding: 0;
+  color: var(--fg);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: var(--shadow-lift);
+}
+.dialog::backdrop { background: rgb(0 0 0 / 0.55); }
+.dialog[open] { animation: rise 0.25s var(--ease); }
+.dialog-body { display: flex; flex-direction: column; gap: 12px; padding: 20px; }
+.dialog h2 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -0.01em; text-transform: none; color: var(--fg); }
+.dialog p { margin: 0; color: var(--muted); }
+.dialog .hint.err { color: var(--fg); }
+.dialog-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+/* Dangerous buttons: no color, so a heavy outline and a warning sign mark them. */
+.btn.danger { background: var(--surface); color: var(--fg); border: 2px solid var(--fg); box-shadow: none; }
+.btn.danger::before { content: "\26A0\FE0E"; margin-right: 6px; }
+.btn.danger:hover { background: var(--surface-2); border-color: var(--fg); }
+
 /* Android shape previews */
 .sub-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin: 22px 0 4px; }
 .sub-head h3 { margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }

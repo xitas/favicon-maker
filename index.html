@@ -187,6 +187,23 @@
     </div>
   </main>
 
+  <dialog id="dialog" class="dialog" aria-labelledby="dialogTitle" aria-describedby="dialogMessage">
+    <div class="dialog-body">
+      <h2 id="dialogTitle"></h2>
+      <p id="dialogMessage"></p>
+      <div id="dialogField" class="field" hidden>
+        <label class="col" for="dialogInput"><span id="dialogLabel"></span>
+          <input id="dialogInput" type="text" autocomplete="off" spellcheck="false" aria-describedby="dialogError">
+        </label>
+        <p id="dialogError" class="hint note-line err" role="alert"></p>
+      </div>
+      <div class="dialog-actions">
+        <button id="dialogCancel" class="btn ghost" type="button">Cancel</button>
+        <button id="dialogOk" class="btn" type="button">OK</button>
+      </div>
+    </div>
+  </dialog>
+
   <!-- Order matters: each file uses the ones above it. -->
   <script src="js/lib/zip.js" defer></script>
   <script src="js/lib/ico.js" defer></script>
@@ -197,6 +214,7 @@
   <script src="js/outputs.js" defer></script>
   <script src="js/design.js" defer></script>
   <script src="js/store.js" defer></script>
+  <script src="js/dialog.js" defer></script>
   <script src="js/app.js" defer></script>
 </body>
 </html>
