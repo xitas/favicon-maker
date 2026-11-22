@@ -237,6 +237,10 @@ body::before {
   border: 0;
 }
 .hint code { font-family: var(--font-code); }
+/* Links: monochrome, told apart by the underline. */
+a { color: var(--fg); text-decoration: underline; text-underline-offset: 2px; }
+a:hover { text-decoration-thickness: 2px; }
+a:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; border-radius: 2px; }
 /* Errors: no color, so they stand out with weight, an underline and a warning sign. */
 .hint.err {
   color: var(--fg);
