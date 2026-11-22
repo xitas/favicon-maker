@@ -45,6 +45,7 @@
     return {
       mode,
       image,
+      imageVector: !!(image && image.dataset.vector === '1'),
       text: Outputs.clip(el.text.value, Outputs.TEXT_MAX),
       font: el.font.value,
       bold: el.bold.checked,
@@ -347,6 +348,7 @@
     }
     const url = URL.createObjectURL(file);
     const img = new Image();
+    img.dataset.vector = file.type === 'image/svg+xml' ? '1' : '';
     img.onload = () => {
       if (imageUrl) URL.revokeObjectURL(imageUrl);
       image = img;

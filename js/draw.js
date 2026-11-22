@@ -1,4 +1,4 @@
-/* Icon drawing on <canvas>. Pure: everything it needs comes in through `settings`. Depends on Fonts.
+/* Icon drawing on <canvas>. Pure: everything it needs comes in through `settings`. Depends on Fonts, Shrink.
    Fonts must already be loaded (see Fonts.prepare), so nothing is drawn with a fallback font. */
 const Draw = (() => {
   'use strict';
@@ -124,15 +124,60 @@ const Draw = (() => {
     return { clip: { x: pad, y: pad, size: box }, x: (size - w) / 2, y: (size - h) / 2, w, h };
   }
 
+  /* ---------- Shrinking images ---------- */
+
+  const PYRAMID_MAX = 4096; // longest side kept from an upload
+  const pyramids = new WeakMap(); // image -> [{ canvas, width, height }], largest first
+
+  function toCanvas(img) {
+    const canvas = document.createElement('canvas');
+    canvas.width = img.width;
+    canvas.height = img.height;
+    canvas.getContext('2d').putImageData(new ImageData(Shrink.unpremultiply(img.data), img.width, img.height), 0, 0);
+    return canvas;
+  }
+
+  /** The image halved again and again (premultiplied), made once per image and kept. */
+  function pyramid(image) {
+    if (pyramids.has(image)) return pyramids.get(image);
+    const iw = image.naturalWidth || 512;
+    const ih = image.naturalHeight || 512;
+    const k = Math.min(1, PYRAMID_MAX / Math.max(iw, ih));
+    const w = Math.max(1, Math.round(iw * k));
+    const h = Math.max(1, Math.round(ih * k));
+    const first = document.createElement('canvas');
+    first.width = w;
+    first.height = h;
+    const ctx = first.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(image, 0, 0, w, h);
+    const levels = [{ canvas: first, width: w, height: h }];
+    let img = { width: w, height: h, data: Shrink.premultiply(ctx.getImageData(0, 0, w, h).data) };
+    // Stop at 8 px on the shorter side: the smallest icon is 16 px.
+    while (Math.min(img.width, img.height) > 8) {
+      img = Shrink.halve(img);
+      levels.push({ canvas: toCanvas(img), width: img.width, height: img.height });
+    }
+    pyramids.set(image, levels);
+    return levels;
+  }
+
+  /** What to draw a raster image from at `w` × `h`: a halving step less than twice that size. */
+  function shrinkSource(image, w, h) {
+    const levels = pyramid(image);
+    return levels[Shrink.pick(levels.map((l) => [l.width, l.height]), w, h)].canvas;
+  }
+
   function drawImage(ctx, area, s) {
     const image = s.image;
     if (!image) return;
     const l = imageLayout(area.size, s, image.naturalWidth || 512, image.naturalHeight || 512);
+    // Vector images (SVG) are drawn straight at the target size; raster images are shrunk in steps.
+    const source = s.imageVector ? image : shrinkSource(image, l.w, l.h);
     ctx.save();
     ctx.beginPath();
     ctx.rect(area.x + l.clip.x, area.y + l.clip.y, l.clip.size, l.clip.size);
     ctx.clip();
-    ctx.drawImage(image, area.x + l.x, area.y + l.y, l.w, l.h);
+    ctx.drawImage(source, area.x + l.x, area.y + l.y, l.w, l.h);
     ctx.restore();
   }
 

@@ -33,7 +33,8 @@ A favicon generator built with plain HTML, CSS and JavaScript. Make an icon from
 ├── js/
 │   ├── lib/
 │   │   ├── zip.js      # ZIP archive builder (no compression, no library)
-│   │   └── ico.js      # ICO builder that packs PNG images
+│   │   ├── ico.js      # ICO builder that packs PNG images
+│   │   └── shrink.js   # Shrinks images step by step, in premultiplied alpha
 │   ├── fonts.js        # Bundled font list, character coverage and font loading
 │   ├── draw.js         # Draws the icon on a canvas from the current settings
 │   ├── outputs.js      # Generated files, manifest, HTML snippet, text and path helpers
@@ -50,7 +51,7 @@ A favicon generator built with plain HTML, CSS and JavaScript. Make an icon from
 └── README.md
 ```
 
-The scripts are plain (non-module) scripts loaded in order, so the page still works when you open `index.html` straight from disk. Each file exposes one object (`Zip`, `Ico`, `Fonts`, `Draw`, `Outputs`) that the files after it use.
+The scripts are plain (non-module) scripts loaded in order, so the page still works when you open `index.html` straight from disk. Each file exposes one object (`Zip`, `Ico`, `Shrink`, `Fonts`, `Draw`, `Outputs`) that the files after it use.
 
 The page makes no requests to other sites. The interface uses your system's fonts; the icons use fonts bundled in `assets/fonts/`, so an icon looks the same whichever computer it's made on.
 
@@ -108,6 +109,7 @@ The icon paths inside `site.webmanifest` are relative to the manifest, so they w
 ## How it works
 
 - Each size is drawn on its own `<canvas>`, so small sizes are drawn directly at that size instead of being shrunk from a large image. This keeps 16 px icons sharp.
+- A large uploaded image is shrunk in steps, halving each time, before the last small step to the icon size. This keeps detail from turning jagged at 16, 32 and 48 px. It works in premultiplied alpha, so transparent edges get no dark fringe. SVG uploads are drawn straight at each size.
 - `favicon.ico` is built in the browser from PNG images at 16, 32 and 48 px.
 - The ZIP file is built in the browser too, with no library.
 - `apple-touch-icon.png` is always a full square with a solid background, because iOS adds its own rounded corners and does not support transparency. If you choose a transparent background, it uses white.
