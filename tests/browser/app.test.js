@@ -278,7 +278,7 @@ for (const target of targets()) {
         ];
         for (const [typed, kept, counter] of cases) {
           await t.test(typed, async () => {
-            assert.deepEqual(await drawnTextFor(page, typed), [kept]);
+            assert.deepEqual(await drawnTextFor(page, typed), [kept.normalize('NFC')], 'drawn whole, in precomposed form');
             assert.equal(await page.inputValue('#text'), kept);
             assert.equal(await page.locator('#textCount').textContent(), counter);
           });

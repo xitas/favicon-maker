@@ -1,4 +1,4 @@
-/* Page UI: reads the form, keeps previews in sync and wires up downloads. Depends on Draw, Outputs. */
+/* Page UI: reads the form, keeps previews in sync and wires up downloads. Depends on Fonts, Draw, Outputs. */
 (function () {
   'use strict';
 
@@ -6,6 +6,10 @@
   const THUMB_SIZE = 80;
   const TEXT_LIMIT_NOTE = 'Up to ' + Outputs.TEXT_MAX + ' characters fit in a favicon.';
   const NO_IMAGE_NOTE = 'Choose an image first.';
+  const GLYPH_NOTE = "This character isn't in the chosen font, so it may look different on other computers.";
+  const GLYPHS_NOTE = "These characters aren't in the chosen font, so they may look different on other computers.";
+  const EMOJI_LOADING_NOTE = 'Loading the emoji font…';
+  const EMOJI_FALLBACK_NOTE = "This browser can't draw the bundled emoji, so this device's emoji are used instead.";
 
   /* ---------- Elements and state ---------- */
   const $ = (id) => document.getElementById(id);
@@ -13,8 +17,8 @@
   const el = {
     modeText: $('modeText'), modeImage: $('modeImage'),
     textPanel: $('textPanel'), imagePanel: $('imagePanel'),
-    text: $('text'), textCount: $('textCount'), textNote: $('textNote'),
-    font: $('font'), bold: $('bold'), textScale: $('textScale'), textScaleOut: $('textScaleOut'), fg: $('fg'),
+    text: $('text'), textCount: $('textCount'), textNote: $('textNote'), glyphNote: $('glyphNote'),
+    font: $('font'), fontNote: $('fontNote'), bold: $('bold'), emoji: $('emoji'), emojiNote: $('emojiNote'), textScale: $('textScale'), textScaleOut: $('textScaleOut'), fg: $('fg'),
     file: $('file'), drop: $('drop'), dropText: $('dropText'), fileNote: $('fileNote'), fit: $('fit'), pad: $('pad'), padOut: $('padOut'),
     bg: $('bg'), transparent: $('transparent'), radius: $('radius'), radiusOut: $('radiusOut'), appName: $('appName'),
     heroIcon: $('heroIcon'), tabA: $('tabA'), tabB: $('tabB'), tabTitleA: $('tabTitleA'), tabTitleB: $('tabTitleB'),
@@ -23,7 +27,7 @@
   };
 
   const RANGES = ['textScale', 'pad', 'radius'];
-  const INPUTS = ['text', 'font', 'bold', 'textScale', 'fg', 'fit', 'pad', 'bg', 'transparent', 'radius', 'appName', 'basePath'];
+  const INPUTS = ['text', 'font', 'bold', 'emoji', 'textScale', 'fg', 'fit', 'pad', 'bg', 'transparent', 'radius', 'appName', 'basePath'];
 
   let mode = 'text';
   let image = null;    // loaded HTMLImageElement for image mode
@@ -40,6 +44,7 @@
       text: Outputs.clip(el.text.value, Outputs.TEXT_MAX),
       font: el.font.value,
       bold: el.bold.checked,
+      emoji: el.emoji.value,
       textScale: Number(el.textScale.value),
       fg: el.fg.value,
       bg: el.bg.value,
@@ -96,6 +101,30 @@
     el.textCount.textContent = count + ' / ' + max;
     if (over) setStatus(el.textNote, TEXT_LIMIT_NOTE, false);
     else if (count < max) setStatus(el.textNote, '', false);
+  }
+
+  /* ---------- Font menu ---------- */
+  /** One option per bundled font, each shown in its own font where the browser allows it. */
+  function buildFontMenu() {
+    Fonts.registerPreviews();
+    Fonts.keys().forEach((k) => {
+      const option = document.createElement('option');
+      option.value = k;
+      option.textContent = Fonts.label(k);
+      option.style.fontFamily = '"' + Fonts.previewFamily(k) + '", var(--font-ui)';
+      el.font.appendChild(option);
+    });
+    el.font.value = Fonts.key('sans');
+  }
+
+  /** Show the chosen font's name in that font, and turn Bold off for fonts with one weight. */
+  function updateFontControls() {
+    const k = Fonts.key(el.font.value);
+    el.font.style.fontFamily = '"' + Fonts.previewFamily(k) + '", var(--font-ui)';
+    const bold = Fonts.hasBold(k);
+    el.bold.disabled = !bold;
+    if (!bold) setStatus(el.fontNote, Fonts.info(k).label + ' has one weight, so Bold is off.', false);
+    else if (!el.fontNote.classList.contains('err')) setStatus(el.fontNote, '', false);
   }
 
   /* ---------- Page build ---------- */
@@ -184,31 +213,68 @@
 
   /* ---------- Refresh ---------- */
   let queued = false;
+  let drawSeq = 0;
   function refresh() {
     if (queued) return;
     queued = true;
     requestAnimationFrame(() => {
       queued = false;
-      const s = readSettings();
-
-      previews.forEach((p) => Draw.icon(p.canvas.getContext('2d'), p.size, s, false));
-      thumbs.forEach((t) => Draw.icon(t.canvas.getContext('2d'), t.size, s, t.apple));
-      [el.tabA, el.tabB].forEach((c) => Draw.icon(c.getContext('2d'), 32, s, false));
-      el.tabTitleA.textContent = el.tabTitleB.textContent = s.appName;
-      Draw.icon(el.heroIcon.getContext('2d'), el.heroIcon.width, s, false);
-
-      // Filled part of each slider's track.
-      RANGES.forEach((k) => {
-        const r = el[k];
-        r.style.setProperty('--fill', ((r.value - r.min) / (r.max - r.min)) * 100 + '%');
+      const raw = readSettings();
+      updateControls(raw);
+      updateFontControls();
+      updateNotes(raw);
+      const seq = ++drawSeq;
+      if (raw.mode === 'text' && raw.emoji === 'bundled' && Fonts.emojiState() !== 'ready' && Fonts.emojiState() !== 'unsupported') {
+        setStatus(el.emojiNote, EMOJI_LOADING_NOTE, false);
+      }
+      // Wait for the fonts, so the previews never show a fallback font. Only the latest request draws.
+      Fonts.prepare(raw).then((s) => {
+        if (seq !== drawSeq) return;
+        if (el.fontNote.classList.contains('err')) setStatus(el.fontNote, '', false);
+        updateFontControls();
+        updateEmojiNote(raw, s);
+        draw(s);
+      }, (err) => {
+        if (seq !== drawSeq) return;
+        setStatus(el.fontNote, 'Could not load the font: ' + err.message + '. Try another font, or reload the page.', true);
       });
-
-      el.textScaleOut.textContent = s.textScale + '%';
-      el.padOut.textContent = s.pad + '%';
-      el.radiusOut.textContent = s.radius + '%';
-      el.bg.disabled = s.transparent;
-      el.snippet.querySelector('code').textContent = Outputs.snippet(s);
     });
+  }
+
+  function updateEmojiNote(raw, s) {
+    if (raw.mode !== 'text' || raw.emoji !== 'bundled') setStatus(el.emojiNote, '', false);
+    else if (s.emoji !== 'bundled') setStatus(el.emojiNote, EMOJI_FALLBACK_NOTE, false);
+    else setStatus(el.emojiNote, '', false);
+  }
+
+  /** Notes that depend only on the settings, shown right away. */
+  function updateNotes(s) {
+    const missing = s.mode === 'text' ? Fonts.missing(s.text, s.font) : [];
+    const text = missing.length === 0 ? '' : missing.length === 1 ? GLYPH_NOTE : GLYPHS_NOTE;
+    if (el.glyphNote.textContent !== text) setStatus(el.glyphNote, text, false);
+  }
+
+  /** Controls that follow the settings right away, before the fonts load. */
+  function updateControls(s) {
+    // Filled part of each slider's track.
+    RANGES.forEach((k) => {
+      const r = el[k];
+      r.style.setProperty('--fill', ((r.value - r.min) / (r.max - r.min)) * 100 + '%');
+    });
+    el.textScaleOut.textContent = s.textScale + '%';
+    el.padOut.textContent = s.pad + '%';
+    el.radiusOut.textContent = s.radius + '%';
+    el.bg.disabled = s.transparent;
+    el.tabTitleA.textContent = el.tabTitleB.textContent = s.appName;
+    el.snippet.querySelector('code').textContent = Outputs.snippet(s);
+  }
+
+  /** Draw every preview with settings whose fonts are loaded. */
+  function draw(s) {
+    previews.forEach((p) => Draw.icon(p.canvas.getContext('2d'), p.size, s, false));
+    thumbs.forEach((t) => Draw.icon(t.canvas.getContext('2d'), t.size, s, t.apple));
+    [el.tabA, el.tabB].forEach((c) => Draw.icon(c.getContext('2d'), 32, s, false));
+    Draw.icon(el.heroIcon.getContext('2d'), el.heroIcon.width, s, false);
   }
 
   function setMode(next) {
@@ -307,6 +373,7 @@
   }
 
   /* ---------- Start ---------- */
+  buildFontMenu();
   buildPreviewList();
   buildFileList();
   bindEvents();

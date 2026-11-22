@@ -3,17 +3,24 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
-const { chromium } = require('playwright');
+const playwright = require('playwright');
 const { ROOT } = require('./load');
 const { startServer } = require('./server');
 
 const FILE_URL = pathToFileURL(path.join(ROOT, 'index.html')).href;
 
-/** Hosts the page is allowed to contact. Google Fonts is answered locally with an empty stylesheet so tests run offline. */
-const STUBBED_HOSTS = new Set(['fonts.googleapis.com', 'fonts.gstatic.com']);
-
-async function launch() {
-  return chromium.launch();
+/**
+ * Launch a browser: 'chromium' (Playwright's build), 'firefox', or an installed 'chrome' or 'msedge'.
+ * Resolves to null when that browser isn't installed, so tests can skip it.
+ */
+async function launch(name = 'chromium') {
+  try {
+    if (name === 'chrome' || name === 'msedge') return await playwright.chromium.launch({ channel: name });
+    return await playwright[name].launch();
+  } catch (e) {
+    if (name === 'chromium') throw e;
+    return null;
+  }
 }
 
 /**
@@ -21,8 +28,8 @@ async function launch() {
  * @param {import('playwright').Browser} browser
  * @param {string} url
  */
-async function openApp(browser, url) {
-  const context = await browser.newContext({ acceptDownloads: true });
+async function openApp(browser, url, options = {}) {
+  const context = await browser.newContext({ acceptDownloads: true, ...options });
   const page = await context.newPage();
   const errors = [];
   const externalRequests = [];
@@ -30,13 +37,11 @@ async function openApp(browser, url) {
   page.on('console', (msg) => { if (msg.type() === 'error') errors.push(msg.text()); });
   page.on('pageerror', (err) => errors.push(String(err)));
 
+  // The page may only load its own files. Anything else is recorded and blocked.
   await context.route('**/*', (route) => {
     const u = new URL(route.request().url());
     if (u.protocol === 'file:' || u.protocol === 'data:' || u.protocol === 'blob:' || u.hostname === '127.0.0.1') {
       return route.continue();
-    }
-    if (STUBBED_HOSTS.has(u.hostname)) {
-      return route.fulfill({ status: 200, contentType: 'text/css', body: '' });
     }
     externalRequests.push(u.href);
     return route.abort();
@@ -44,8 +49,16 @@ async function openApp(browser, url) {
 
   await page.goto(url);
   await page.waitForFunction(() => document.querySelectorAll('#files li').length > 0);
-  await nextFrames(page);
+  await settled(page);
   return { context, page, errors, externalRequests };
+}
+
+/** Wait until the previews are drawn: the next frames, then any font loading. */
+async function settled(page) {
+  await nextFrames(page);
+  await page.evaluate(() => document.fonts.ready);
+  await page.evaluate(() => Fonts.prepare({ mode: 'text', text: document.getElementById('text').value, font: document.getElementById('font').value, bold: document.getElementById('bold').checked, emoji: document.getElementById('emoji').value }).catch(() => null));
+  await nextFrames(page);
 }
 
 /** Wait for the app's requestAnimationFrame refresh to run. */
@@ -73,4 +86,4 @@ function targets() {
   ];
 }
 
-module.exports = { launch, openApp, nextFrames, download, targets, FILE_URL };
+module.exports = { launch, openApp, nextFrames, settled, download, targets, FILE_URL };

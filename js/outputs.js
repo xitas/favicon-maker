@@ -1,5 +1,5 @@
 /* The files the generator produces, and how to build each one, plus the pure text and path helpers they use.
-   Depends on Draw, Ico, Zip. */
+   Depends on Fonts, Draw, Ico, Zip. */
 const Outputs = (() => {
   'use strict';
 
@@ -147,11 +147,12 @@ const Outputs = (() => {
     });
   }
 
-  /** Build one entry of FILES as a Blob, using the current settings. */
+  /** Build one entry of FILES as a Blob, using the current settings. Images wait for their fonts first. */
   async function build(file, s) {
     if (file.kind === 'manifest') {
       return new Blob([manifestText(s)], { type: 'application/manifest+json' });
     }
+    s = await Fonts.prepare(s);
     if (file.kind === 'ico') {
       const blobs = await Promise.all(file.sizes.map((z) => toBlob(Draw.render(z, s))));
       const buffers = await Promise.all(blobs.map((b) => b.arrayBuffer()));
@@ -162,6 +163,7 @@ const Outputs = (() => {
 
   /** Build every file and pack them into one ZIP Blob. */
   async function buildZip(s) {
+    s = await Fonts.prepare(s);
     const entries = [];
     for (const file of FILES) {
       const blob = await build(file, s);

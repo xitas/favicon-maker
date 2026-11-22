@@ -32,17 +32,26 @@
             </label>
             <p id="textHelp" class="sr-only">Up to 3 characters.</p>
             <p id="textNote" class="hint note-line" role="status"></p>
+            <p id="glyphNote" class="hint note-line" role="status"></p>
           </div>
-          <div class="two">
-            <label class="col" for="font">Font
-              <select id="font">
-                <option value="sans">Sans</option>
-                <option value="serif">Serif</option>
-                <option value="mono">Monospace</option>
-                <option value="display">Display</option>
+          <div class="field">
+            <div class="two">
+              <label class="col" for="font">Font
+                <select id="font" aria-describedby="fontNote"></select>
+              </label>
+              <label class="check" for="bold"><input type="checkbox" id="bold" checked aria-describedby="fontNote"> Bold</label>
+            </div>
+            <p id="fontNote" class="hint note-line" role="status"></p>
+          </div>
+          <div class="field">
+            <label class="col" for="emoji">Emoji style
+              <select id="emoji" aria-describedby="emojiHint emojiNote">
+                <option value="system">This device</option>
+                <option value="bundled">Same everywhere</option>
               </select>
             </label>
-            <label class="check" for="bold"><input type="checkbox" id="bold" checked> Bold</label>
+            <p id="emojiHint" class="hint note-line">Emoji look different on each system. "Same everywhere" downloads an emoji font (1.9 MB) the first time.</p>
+            <p id="emojiNote" class="hint note-line" role="status"></p>
           </div>
           <label class="col" for="textScale">
             <span class="row">Text size <output id="textScaleOut" for="textScale">70%</output></span>
@@ -124,6 +133,7 @@
   <!-- Order matters: each file uses the ones above it. -->
   <script src="js/lib/zip.js" defer></script>
   <script src="js/lib/ico.js" defer></script>
+  <script src="js/fonts.js" defer></script>
   <script src="js/draw.js" defer></script>
   <script src="js/outputs.js" defer></script>
   <script src="js/app.js" defer></script>

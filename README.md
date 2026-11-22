@@ -7,7 +7,8 @@ A favicon generator built with plain HTML, CSS and JavaScript. Make an icon from
 ## Features
 
 - **Two sources:** type up to 3 letters or emoji, or upload an image (PNG, JPG, SVG, WebP)
-- **Design controls:** font, bold, text size and color, background color, transparent background and corner radius
+- **Design controls:** 8 bundled fonts, bold, text size and color, background color, transparent background and corner radius
+- **Emoji style:** this device's emoji, or the same emoji everywhere with a bundled emoji font
 - **Live preview:** browser tab mockups (light and dark) and the icon at 16, 32, 48, 180 and 512 px
 - **All the files you need:**
   - `favicon.ico` (16, 32 and 48 px in one file)
@@ -24,25 +25,33 @@ A favicon generator built with plain HTML, CSS and JavaScript. Make an icon from
 ```
 .
 ├── index.html          # Page markup
+├── assets/
+│   └── fonts/          # Bundled icon fonts (woff2), each with its OFL license
 ├── css/
 │   └── style.css       # Styles
 ├── js/
 │   ├── lib/
 │   │   ├── zip.js      # ZIP archive builder (no compression, no library)
 │   │   └── ico.js      # ICO builder that packs PNG images
+│   ├── fonts.js        # Bundled font list, character coverage and font loading
 │   ├── draw.js         # Draws the icon on a canvas from the current settings
 │   ├── outputs.js      # Generated files, manifest, HTML snippet, text and path helpers
 │   └── app.js          # Page UI: form, previews, downloads
 ├── tests/
 │   ├── helpers/        # Loads the scripts in Node, file format readers, browser setup
 │   ├── unit/           # node:test unit tests
-│   └── browser/        # Playwright checks of the real page
+│   ├── browser/        # Playwright checks of the real page
+│   └── fixtures/       # Test-only files
+├── tools/
+│   └── build-fonts.py  # Rebuilds assets/fonts from the upstream fonts (maintainers only)
 ├── LICENSE
 ├── package.json        # Test tools only, the page doesn't use them
 └── README.md
 ```
 
-The scripts are plain (non-module) scripts loaded in order, so the page still works when you open `index.html` straight from disk. Each file exposes one object (`Zip`, `Ico`, `Draw`, `Outputs`) that the files after it use.
+The scripts are plain (non-module) scripts loaded in order, so the page still works when you open `index.html` straight from disk. Each file exposes one object (`Zip`, `Ico`, `Fonts`, `Draw`, `Outputs`) that the files after it use.
+
+The page makes no requests to other sites. The interface uses your system's fonts; the icons use fonts bundled in `assets/fonts/`, so an icon looks the same whichever computer it's made on.
 
 ## Getting started
 
@@ -70,9 +79,11 @@ The page itself needs nothing installed. The tests use Node.js 22 or newer and a
 ```bash
 npm ci                              # install the test tools
 npm test                            # unit tests for the ZIP, ICO and output builders
-npx playwright install chromium     # once, for the browser checks
-npm run test:browser                # opens the page in Chromium from file:// and a local server
+npx playwright install chromium firefox   # once, for the browser checks
+npm run test:browser                # opens the page in Chromium and Firefox from file:// and a local server
 ```
+
+The font checks also run in Chrome and Edge when they are installed, and skip them otherwise.
 
 Known bugs are recorded as todo tests: they show in the results but don't fail the run. GitHub Actions runs both on every push and pull request.
 
@@ -105,6 +116,28 @@ The icon paths inside `site.webmanifest` are relative to the manifest, so they w
 - Use one or two characters. The text box holds up to 3, because more doesn't read at 16 px. An emoji, a flag or an accented letter counts as one.
 - Pick high contrast between the text and the background.
 - For an image, a simple square logo with a bit of padding works best.
+
+## Fonts
+
+The icon fonts are bundled in `assets/fonts/`, trimmed to Latin and Latin Extended characters to keep them small. A font is downloaded only when you choose it. Each folder has the font's license next to it.
+
+| Style | Font | Designer | License |
+|---|---|---|---|
+| Sans | [Inter](https://github.com/rsms/inter) | Rasmus Andersson | SIL Open Font License 1.1 |
+| Rounded | [Nunito](https://github.com/googlefonts/nunito) | Vernon Adams, Cyreal, Jacques Le Bailly | SIL Open Font License 1.1 |
+| Serif | [Source Serif 4](https://github.com/adobe-fonts/source-serif) | Frank Grießhammer (Adobe) | SIL Open Font License 1.1 |
+| Slab | [Zilla Slab](https://github.com/mozilla/zilla-slab) | Typotheque, for Mozilla | SIL Open Font License 1.1 |
+| Mono | [JetBrains Mono](https://github.com/JetBrains/JetBrainsMono) | JetBrains, Philipp Nurullin, Konstantin Bulenkov | SIL Open Font License 1.1 |
+| Display | [Anton](https://github.com/googlefonts/AntonFont) | Vernon Adams | SIL Open Font License 1.1 |
+| Geometric | [Montserrat](https://github.com/JulietaUla/Montserrat) | Julieta Ulanovsky, Sol Matas, Juan Pablo del Peral, Jacques Le Bailly | SIL Open Font License 1.1 |
+| Handwritten | [Caveat](https://github.com/googlefonts/caveat) | Impallari Type | SIL Open Font License 1.1 |
+| Emoji | [Noto Color Emoji](https://github.com/googlefonts/noto-emoji) | Google | SIL Open Font License 1.1 |
+
+Characters a font doesn't have, such as Urdu, Arabic, Chinese or Hindi, are drawn with your system's font, and the page tells you they may look different on other computers.
+
+The emoji font (1.9 MB) is downloaded only when you choose **Same everywhere**. It uses the COLRv1 color font format, which Chrome, Edge and Firefox draw on a canvas. A browser that can't draw it falls back to its own emoji and says so.
+
+To rebuild the fonts from their upstream sources: `python -m pip install fonttools brotli`, then `python tools/build-fonts.py`.
 
 ## License
 
