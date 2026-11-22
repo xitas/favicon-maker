@@ -33,6 +33,7 @@
     designs: $('designs'), designsEmpty: $('designsEmpty'), exportDesign: $('exportDesign'), importDesign: $('importDesign'),
     importFile: $('importFile'), forgetAll: $('forgetAll')
   };
+  const SECTIONS = Array.from(document.querySelectorAll('.controls details.section'));
 
   const RANGES = ['textScale', 'pad', 'radius', 'maskPad'];
   const MASK_SHAPES = [['circle', 'Circle'], ['squircle', 'Squircle'], ['rounded', 'Rounded square'], ['teardrop', 'Teardrop']];
@@ -119,6 +120,28 @@
     el.textCount.textContent = count + ' / ' + max;
     if (over) setStatus(el.textNote, TEXT_LIMIT_NOTE, false);
     else if (count < max) setStatus(el.textNote, '', false);
+  }
+
+  /* ---------- Collapsible sections ---------- */
+  /** Open or close sections as last time (kept in localStorage), and remember each change. */
+  function setUpSections() {
+    let saved = {};
+    try {
+      saved = JSON.parse(localStorage.getItem('favicon-maker.sections') || '{}') || {};
+    } catch (e) {
+      saved = {};
+    }
+    const save = () => {
+      const state = {};
+      SECTIONS.forEach((x) => { state[x.id] = x.open; });
+      try { localStorage.setItem('favicon-maker.sections', JSON.stringify(state)); } catch (e) { /* not kept */ }
+    };
+    SECTIONS.forEach((d) => {
+      if (typeof saved[d.id] === 'boolean') d.open = saved[d.id];
+      d.addEventListener('toggle', save);
+    });
+    // The toggle event comes a moment later, so also save when the page goes away.
+    window.addEventListener('pagehide', save);
   }
 
   /* ---------- Font menu ---------- */
@@ -1019,6 +1042,7 @@
   }
 
   /* ---------- Start ---------- */
+  setUpSections();
   buildFontMenu();
   buildPreviewList();
   buildMaskList();

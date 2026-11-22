@@ -152,11 +152,55 @@ body::before {
 /* Controls */
 .controls { display: flex; flex-direction: column; gap: 16px; }
 @media (min-width: 821px) {
-  .controls { position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow-y: auto; }
+  /* The controls scroll on their own, and never scroll the page, so the preview stays in view. */
+  .controls { position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow-y: auto; overscroll-behavior: contain; }
 }
 .group { display: flex; flex-direction: column; gap: 14px; }
 .group + .group { padding-top: 16px; border-top: 1px solid var(--line); }
 .group:not([hidden]) { animation: rise 0.35s var(--ease); }
+
+/* Collapsible sections of the controls panel */
+.controls { gap: 0; }
+.controls .toolbar { margin-bottom: 10px; }
+.section { border-top: 1px solid var(--line); }
+.section:not([hidden]) { animation: rise 0.35s var(--ease); }
+.section > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 4px;
+  margin: 0 -4px;
+  border-radius: 8px;
+  list-style: none;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  user-select: none;
+  transition: color 0.2s, background-color 0.2s;
+}
+.section > summary::-webkit-details-marker { display: none; }
+.section > summary:hover { color: var(--fg); background: var(--surface-2); }
+.section > summary:focus-visible { outline: 2px solid var(--ring); outline-offset: 0; }
+/* Chevron: points right when closed, down when open. */
+.section > summary::after {
+  content: "";
+  flex: none;
+  width: 8px;
+  height: 8px;
+  margin-right: 6px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform 0.2s var(--ease);
+}
+.section[open] > summary::after { transform: rotate(45deg) translate(-2px, -2px); }
+.section[open] > summary { color: var(--fg); }
+.section-body { display: flex; flex-direction: column; gap: 14px; padding: 4px 0 18px; }
 .col { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 500; }
 .row { display: flex; justify-content: space-between; gap: 8px; }
 .row output {

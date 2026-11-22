@@ -140,6 +140,7 @@ for (const target of targets()) {
     test('Different colors in dark mode: the SVG switches with the color scheme, and the dark tab shows it', async () => {
       const { context, page } = await openApp(browser, url);
       try {
+        await page.click('#secDark > summary'); // dark mode is in a section that starts closed
         assert.equal(await page.locator('#darkColors').isHidden(), true);
         await setValue(page, 'dark', true);
         assert.equal(await page.locator('#darkColors').isVisible(), true);

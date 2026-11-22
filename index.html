@@ -25,91 +25,118 @@
           <button id="redo" class="btn ghost small" type="button" aria-keyshortcuts="Control+Shift+Z Meta+Shift+Z Control+Y" disabled>Redo</button>
           <button id="reset" class="btn ghost small" type="button">Reset to default</button>
         </div>
-        <div class="seg" role="group" aria-label="Icon source">
-          <button id="modeText" type="button" aria-pressed="true">Text or emoji</button>
-          <button id="modeImage" type="button" aria-pressed="false">Image</button>
-        </div>
 
-        <div id="textPanel" class="group">
-          <div class="field">
-            <label class="col" for="text">
-              <span class="row">Text or emoji <output id="textCount" for="text" aria-hidden="true">1 / 3</output></span>
-              <input id="text" type="text" value="F" autocomplete="off" spellcheck="false" aria-describedby="textHelp textNote">
-            </label>
-            <p id="textHelp" class="sr-only">Up to 3 characters.</p>
-            <p id="textNote" class="hint note-line" role="status"></p>
-            <p id="glyphNote" class="hint note-line" role="status"></p>
-          </div>
-          <div class="field">
-            <div class="two">
-              <label class="col" for="font">Font
-                <select id="font" aria-describedby="fontNote"></select>
-              </label>
-              <label class="check" for="bold"><input type="checkbox" id="bold" checked aria-describedby="fontNote"> Bold</label>
+        <details class="section" id="secSource" open>
+          <summary>Source</summary>
+          <div class="section-body">
+            <div class="seg" role="group" aria-label="Icon source">
+              <button id="modeText" type="button" aria-pressed="true">Text or emoji</button>
+              <button id="modeImage" type="button" aria-pressed="false">Image</button>
             </div>
-            <p id="fontNote" class="hint note-line" role="status"></p>
           </div>
-          <div class="field">
-            <label class="col" for="emoji">Emoji style
-              <select id="emoji" aria-describedby="emojiHint emojiNote">
-                <option value="system">This device</option>
-                <option value="bundled">Same everywhere</option>
-              </select>
-            </label>
-            <p id="emojiHint" class="hint note-line">Emoji look different on each system. "Same everywhere" downloads an emoji font (1.9 MB) the first time.</p>
-            <p id="emojiNote" class="hint note-line" role="status"></p>
-          </div>
-          <label class="col" for="textScale">
-            <span class="row">Text size <output id="textScaleOut" for="textScale">70%</output></span>
-            <input type="range" id="textScale" min="30" max="100" value="70">
-          </label>
-          <label class="color" for="fg">Text color <input type="color" id="fg" value="#ffffff"></label>
-        </div>
+        </details>
 
-        <div id="imagePanel" class="group" hidden>
-          <label class="drop" id="drop" for="file">
-            <span id="dropText">Drop an image here, or click to choose</span>
-            <input type="file" id="file" accept="image/*">
-          </label>
-          <p id="fileNote" class="hint">PNG, JPG, SVG or WebP. A square image works best.</p>
-          <div class="two">
-            <label class="col" for="fit">Fit
-              <select id="fit">
-                <option value="contain">Contain</option>
-                <option value="cover">Cover</option>
-              </select>
+        <details class="section" id="textPanel" open>
+          <summary>Text</summary>
+          <div class="section-body">
+            <div class="field">
+              <label class="col" for="text">
+                <span class="row">Text or emoji <output id="textCount" for="text" aria-hidden="true">1 / 3</output></span>
+                <input id="text" type="text" value="F" autocomplete="off" spellcheck="false" aria-describedby="textHelp textNote">
+              </label>
+              <p id="textHelp" class="sr-only">Up to 3 characters.</p>
+              <p id="textNote" class="hint note-line" role="status"></p>
+              <p id="glyphNote" class="hint note-line" role="status"></p>
+            </div>
+            <div class="field">
+              <div class="two">
+                <label class="col" for="font">Font
+                  <select id="font" aria-describedby="fontNote"></select>
+                </label>
+                <label class="check" for="bold"><input type="checkbox" id="bold" checked aria-describedby="fontNote"> Bold</label>
+              </div>
+              <p id="fontNote" class="hint note-line" role="status"></p>
+            </div>
+            <div class="field">
+              <label class="col" for="emoji">Emoji style
+                <select id="emoji" aria-describedby="emojiHint emojiNote">
+                  <option value="system">This device</option>
+                  <option value="bundled">Same everywhere</option>
+                </select>
+              </label>
+              <p id="emojiHint" class="hint note-line">Emoji look different on each system. "Same everywhere" downloads an emoji font (1.9 MB) the first time.</p>
+              <p id="emojiNote" class="hint note-line" role="status"></p>
+            </div>
+            <label class="col" for="textScale">
+              <span class="row">Text size <output id="textScaleOut" for="textScale">70%</output></span>
+              <input type="range" id="textScale" min="30" max="100" value="70">
             </label>
+            <label class="color" for="fg">Text color <input type="color" id="fg" value="#ffffff"></label>
           </div>
-          <label class="col" for="pad">
-            <span class="row">Padding <output id="padOut" for="pad">0%</output></span>
-            <input type="range" id="pad" min="0" max="30" value="0">
-          </label>
-        </div>
+        </details>
 
-        <div class="group">
-          <label class="color" for="bg">Background color <input type="color" id="bg" value="#0b7a75"></label>
-          <label class="check" for="dark"><input type="checkbox" id="dark" aria-controls="darkColors"> Different colors in dark mode</label>
-          <div id="darkColors" class="group-inner" hidden>
-            <label class="color" for="darkFg" id="darkFgLabel">Dark mode text color <input type="color" id="darkFg" value="#0b7a75"></label>
-            <label class="color" for="darkBg">Dark mode background color <input type="color" id="darkBg" value="#ffffff"></label>
-            <p class="hint">Only favicon.svg can change in dark mode, so the dark browser tab above shows these colors. The PNG and ICO files keep the normal colors.</p>
-          </div>
-          <label class="check" for="transparent"><input type="checkbox" id="transparent"> Transparent background</label>
-          <label class="col" for="radius">
-            <span class="row">Corner radius <output id="radiusOut" for="radius">22%</output></span>
-            <input type="range" id="radius" min="0" max="50" value="22">
-          </label>
-          <div class="field">
-            <label class="col" for="maskPad">
-              <span class="row">Maskable padding <output id="maskPadOut" for="maskPad">10%</output></span>
-              <input type="range" id="maskPad" min="0" max="30" value="10" aria-describedby="maskPadHint">
+        <details class="section" id="imagePanel" open hidden>
+          <summary>Image</summary>
+          <div class="section-body">
+            <label class="drop" id="drop" for="file">
+              <span id="dropText">Drop an image here, or click to choose</span>
+              <input type="file" id="file" accept="image/*">
             </label>
-            <p id="maskPadHint" class="hint note-line">Space around your design in the Android maskable icon. Add more if the shapes below cut it off.</p>
+            <p id="fileNote" class="hint">PNG, JPG, SVG or WebP. A square image works best.</p>
+            <div class="two">
+              <label class="col" for="fit">Fit
+                <select id="fit">
+                  <option value="contain">Contain</option>
+                  <option value="cover">Cover</option>
+                </select>
+              </label>
+            </div>
+            <label class="col" for="pad">
+              <span class="row">Padding <output id="padOut" for="pad">0%</output></span>
+              <input type="range" id="pad" min="0" max="30" value="0">
+            </label>
           </div>
-          <label class="col" for="appName">App name (used in the manifest)
-            <input id="appName" type="text" value="My App" maxlength="45" autocomplete="off">
-          </label>
-        </div>
+        </details>
+
+        <details class="section" id="secShape" open>
+          <summary>Shape and background</summary>
+          <div class="section-body">
+            <label class="color" for="bg">Background color <input type="color" id="bg" value="#0b7a75"></label>
+            <label class="check" for="transparent"><input type="checkbox" id="transparent"> Transparent background</label>
+            <label class="col" for="radius">
+              <span class="row">Corner radius <output id="radiusOut" for="radius">22%</output></span>
+              <input type="range" id="radius" min="0" max="50" value="22">
+            </label>
+          </div>
+        </details>
+
+        <details class="section" id="secDark">
+          <summary>Dark mode</summary>
+          <div class="section-body">
+            <label class="check" for="dark"><input type="checkbox" id="dark" aria-controls="darkColors"> Different colors in dark mode</label>
+            <div id="darkColors" class="group-inner" hidden>
+              <label class="color" for="darkFg" id="darkFgLabel">Dark mode text color <input type="color" id="darkFg" value="#0b7a75"></label>
+              <label class="color" for="darkBg">Dark mode background color <input type="color" id="darkBg" value="#ffffff"></label>
+            </div>
+            <p class="hint">Only favicon.svg can change in dark mode, so the dark browser tab in the preview shows these colors. The PNG and ICO files keep the normal colors.</p>
+          </div>
+        </details>
+
+        <details class="section" id="secSite">
+          <summary>Android and site</summary>
+          <div class="section-body">
+            <div class="field">
+              <label class="col" for="maskPad">
+                <span class="row">Maskable padding <output id="maskPadOut" for="maskPad">10%</output></span>
+                <input type="range" id="maskPad" min="0" max="30" value="10" aria-describedby="maskPadHint">
+              </label>
+              <p id="maskPadHint" class="hint note-line">Space around your design in the Android maskable icon. Add more if the shapes in the preview cut it off.</p>
+            </div>
+            <label class="col" for="appName">App name (used in the manifest)
+              <input id="appName" type="text" value="My App" maxlength="45" autocomplete="off">
+            </label>
+          </div>
+        </details>
       </section>
 
       <div class="out">

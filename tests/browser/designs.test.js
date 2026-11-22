@@ -204,6 +204,7 @@ for (const target of targets()) {
       const { context, page } = await openApp(browser, url);
       try {
         await setValue(page, 'radius', '7');
+        await page.click('#secSite > summary'); // the app name is in a section that starts closed
         await page.locator('#appName').click();
         await page.keyboard.press('End');
         await page.keyboard.type('XY');
@@ -541,6 +542,73 @@ for (const target of targets()) {
   });
 }
 
+
+/* ---------- Collapsible sections ---------- */
+
+describe('collapsible sections in the controls panel', () => {
+  let browser;
+  let url;
+  const target = targets()[0];
+  before(async () => { url = await target.start(); browser = await launch('chromium'); });
+  after(async () => { await browser.close(); await target.stop(); });
+
+  const openState = (page) => page.evaluate(() => Object.fromEntries(
+    [...document.querySelectorAll('.controls details.section')].map((d) => [d.id, d.open])
+  ));
+
+  test('the most used sections start open, the rest closed, and toggles are remembered', async () => {
+    const { context, page } = await openApp(browser, url);
+    try {
+      assert.deepEqual(await openState(page), {
+        secSource: true, textPanel: true, imagePanel: true, secShape: true, secDark: false, secSite: false
+      });
+      assert.equal(await page.locator('#imagePanel').isVisible(), false, 'the image section only shows in image mode');
+      assert.equal(await page.locator('#dark').isVisible(), false);
+
+      // Keyboard: Tab to a section heading, then Enter or Space toggles it.
+      await page.focus('#secDark > summary');
+      await page.keyboard.press('Enter');
+      assert.equal(await page.locator('#dark').isVisible(), true);
+      await page.focus('#secShape > summary');
+      await page.keyboard.press(' ');
+      assert.equal(await page.locator('#bg').isVisible(), false);
+      const summary = await page.evaluate(() => {
+        const s = document.querySelector('#secDark > summary');
+        return { tag: s.tagName, text: s.textContent.trim(), expanded: s.parentElement.open };
+      });
+      assert.deepEqual(summary, { tag: 'SUMMARY', text: 'Dark mode', expanded: true });
+
+      await page.reload();
+      await page.waitForFunction(() => document.documentElement.dataset.ready === '1');
+      assert.deepEqual(await openState(page), {
+        secSource: true, textPanel: true, imagePanel: true, secShape: false, secDark: true, secSite: false
+      });
+    } finally {
+      await context.close();
+    }
+  });
+
+  test('on desktop, scrolling the controls keeps the preview in view', async () => {
+    const { context, page } = await openApp(browser, url, { viewport: { width: 1280, height: 720 } });
+    try {
+      await page.evaluate(() => document.querySelectorAll('.controls details.section').forEach((d) => { d.open = true; }));
+      const box = await page.locator('.controls').boundingBox();
+      await page.mouse.move(box.x + box.width / 2, box.y + 200);
+      for (let i = 0; i < 15; i++) await page.mouse.wheel(0, 400);
+      await page.waitForTimeout(300);
+      const r = await page.evaluate(() => ({
+        pageScroll: window.scrollY,
+        controlsScroll: document.querySelector('.controls').scrollTop,
+        previewTop: document.getElementById('previewTitle').getBoundingClientRect().top
+      }));
+      assert.ok(r.controlsScroll > 100, 'the controls scrolled');
+      assert.equal(r.pageScroll, 0, 'the page did not');
+      assert.ok(r.previewTop > 0 && r.previewTop < 720, 'the preview is on screen');
+    } finally {
+      await context.close();
+    }
+  });
+});
 
 /* ---------- Dialogs: keyboard and screen readers ---------- */
 
