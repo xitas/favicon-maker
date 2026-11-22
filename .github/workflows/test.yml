@@ -24,9 +24,26 @@ jobs:
       - run: npm ci
       - run: npm test
 
+  # The browser checks are split into groups that run at the same time, each on its own runner,
+  # with two test files at a time inside each group. The groups take about the same time.
   browser:
-    name: Browser checks (Chromium and Firefox)
+    name: Browser checks (${{ matrix.group }})
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - group: designs
+            files: tests/browser/designs.test.js
+          - group: styles and same everywhere
+            files: tests/browser/styles.test.js tests/browser/same-everywhere.test.js
+          - group: icons and maskable
+            files: tests/browser/icons.test.js tests/browser/maskable.test.js
+          - group: svg and shrinking
+            files: tests/browser/svg.test.js tests/browser/shrink.test.js
+          - group: app and fonts
+            files: tests/browser/app.test.js tests/browser/fonts.test.js
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -34,5 +51,26 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - name: Find the Playwright version
+        id: playwright
+        run: echo "version=$(node -p "require('playwright/package.json').version")" >> "$GITHUB_OUTPUT"
+      - name: Cache the Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+      # With the cache, only the system libraries are installed; the browsers are already there.
       - run: npx playwright install --with-deps chromium firefox
-      - run: npm run test:browser
+      - run: node --test --test-concurrency=2 ${{ matrix.files }}
+
+  # Fails if any file in tests/browser/ isn't in a group above, so new tests always run.
+  browser-groups:
+    name: Every browser test is in a group
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          grouped="tests/browser/designs.test.js tests/browser/styles.test.js tests/browser/same-everywhere.test.js tests/browser/icons.test.js tests/browser/maskable.test.js tests/browser/svg.test.js tests/browser/shrink.test.js tests/browser/app.test.js tests/browser/fonts.test.js"
+          for f in tests/browser/*.test.js; do
+            case " $grouped " in *" $f "*) ;; *) echo "::error::$f is not in a browser test group"; exit 1 ;; esac
+          done
