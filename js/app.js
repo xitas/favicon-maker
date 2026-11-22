@@ -21,20 +21,24 @@
     font: $('font'), fontNote: $('fontNote'), bold: $('bold'), emoji: $('emoji'), emojiNote: $('emojiNote'), textScale: $('textScale'), textScaleOut: $('textScaleOut'), fg: $('fg'),
     file: $('file'), drop: $('drop'), dropText: $('dropText'), fileNote: $('fileNote'), fit: $('fit'), pad: $('pad'), padOut: $('padOut'),
     bg: $('bg'), transparent: $('transparent'), radius: $('radius'), radiusOut: $('radiusOut'), appName: $('appName'),
+    maskPad: $('maskPad'), maskPadOut: $('maskPadOut'), masks: $('masks'), safeZone: $('safeZone'),
     heroIcon: $('heroIcon'), tabA: $('tabA'), tabB: $('tabB'), tabTitleA: $('tabTitleA'), tabTitleB: $('tabTitleB'),
     sizes: $('sizes'), files: $('files'), filesNote: $('filesNote'), zip: $('zip'),
     basePath: $('basePath'), snippet: $('snippet'), copySnippet: $('copySnippet')
   };
 
-  const RANGES = ['textScale', 'pad', 'radius'];
-  const INPUTS = ['text', 'font', 'bold', 'emoji', 'textScale', 'fg', 'fit', 'pad', 'bg', 'transparent', 'radius', 'appName', 'basePath'];
+  const RANGES = ['textScale', 'pad', 'radius', 'maskPad'];
+  const MASK_SHAPES = [['circle', 'Circle'], ['squircle', 'Squircle'], ['rounded', 'Rounded square'], ['teardrop', 'Teardrop']];
+  const MASK_PREVIEW = 96;
+  const INPUTS = ['text', 'font', 'bold', 'emoji', 'textScale', 'fg', 'fit', 'pad', 'bg', 'transparent', 'radius', 'maskPad', 'safeZone', 'appName', 'basePath'];
 
   let mode = 'text';
   let image = null;    // loaded HTMLImageElement for image mode
   let imageUrl = null; // its object URL, released when another image replaces it
 
   const previews = []; // { canvas, size }
-  const thumbs = [];   // { canvas, size, apple }
+  const thumbs = [];   // { canvas, size, variant }
+  const masks = [];    // { canvas, shape }
   const downloads = []; // { button, busy, note } for every download button
 
   function readSettings() {
@@ -50,6 +54,7 @@
       bg: el.bg.value,
       transparent: el.transparent.checked,
       radius: Number(el.radius.value),
+      maskPad: Number(el.maskPad.value),
       fit: el.fit.value,
       pad: Number(el.pad.value),
       appName: el.appName.value.trim() || 'My App',
@@ -128,6 +133,50 @@
   }
 
   /* ---------- Page build ---------- */
+  /** The maskable icon cut to each shape Android uses. */
+  function buildMaskList() {
+    MASK_SHAPES.forEach(([shape, name]) => {
+      const li = document.createElement('li');
+      const canvas = document.createElement('canvas');
+      canvas.width = canvas.height = MASK_PREVIEW;
+      canvas.style.width = canvas.style.height = '72px';
+      canvas.setAttribute('role', 'img');
+      canvas.setAttribute('aria-label', 'Maskable icon cut to a ' + name.toLowerCase());
+      canvas.dataset.shape = shape;
+      const cap = document.createElement('span');
+      cap.className = 'cap';
+      cap.textContent = name;
+      li.append(canvas, cap);
+      el.masks.appendChild(li);
+      masks.push({ canvas, shape });
+    });
+  }
+
+  /** Draw the maskable icon, cut to a shape, with the safe zone circle on top when asked. */
+  function drawMask(m, s) {
+    const ctx = m.canvas.getContext('2d');
+    const n = m.canvas.width;
+    Draw.icon(ctx, n, s, 'maskable');
+    ctx.save();
+    ctx.globalCompositeOperation = 'destination-in';
+    Draw.maskShape(ctx, n, m.shape);
+    ctx.fill();
+    ctx.restore();
+    if (el.safeZone.checked) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(n / 2, n / 2, n * Draw.SAFE_ZONE_RADIUS, 0, Math.PI * 2);
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.55)';
+      ctx.stroke();
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([5, 4]);
+      ctx.strokeStyle = '#ffffff';
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
   function buildPreviewList() {
     PREVIEW_SIZES.forEach((size) => {
       const li = document.createElement('li');
@@ -172,7 +221,7 @@
         lead = document.createElement('canvas');
         lead.width = lead.height = THUMB_SIZE;
         lead.setAttribute('aria-hidden', 'true');
-        thumbs.push({ canvas: lead, size: THUMB_SIZE, apple: !!file.apple });
+        thumbs.push({ canvas: lead, size: THUMB_SIZE, variant: file.variant });
       }
 
       const meta = document.createElement('div');
@@ -264,6 +313,7 @@
     el.textScaleOut.textContent = s.textScale + '%';
     el.padOut.textContent = s.pad + '%';
     el.radiusOut.textContent = s.radius + '%';
+    el.maskPadOut.textContent = s.maskPad + '%';
     el.bg.disabled = s.transparent;
     el.tabTitleA.textContent = el.tabTitleB.textContent = s.appName;
     el.snippet.querySelector('code').textContent = Outputs.snippet(s);
@@ -272,7 +322,8 @@
   /** Draw every preview with settings whose fonts are loaded. */
   function draw(s) {
     previews.forEach((p) => Draw.icon(p.canvas.getContext('2d'), p.size, s, false));
-    thumbs.forEach((t) => Draw.icon(t.canvas.getContext('2d'), t.size, s, t.apple));
+    masks.forEach((m) => drawMask(m, s));
+    thumbs.forEach((t) => Draw.icon(t.canvas.getContext('2d'), t.size, s, t.variant));
     [el.tabA, el.tabB].forEach((c) => Draw.icon(c.getContext('2d'), 32, s, false));
     Draw.icon(el.heroIcon.getContext('2d'), el.heroIcon.width, s, false);
   }
@@ -375,6 +426,7 @@
   /* ---------- Start ---------- */
   buildFontMenu();
   buildPreviewList();
+  buildMaskList();
   buildFileList();
   bindEvents();
   enforceTextLimit();

@@ -35,12 +35,12 @@ const fileOf = (href) => href.split('/').pop();
 
 /* ---------- FILES ---------- */
 
-test('FILES has the 7 expected files with unique names', () => {
-  assert.equal(FILES.length, 7);
+test('FILES has the expected files with unique names', () => {
   assert.equal(NAMES.size, FILES.length, 'names are unique');
   assert.deepEqual([...NAMES].sort(), [
     'android-chrome-192x192.png', 'android-chrome-512x512.png', 'apple-touch-icon.png',
-    'favicon-16x16.png', 'favicon-32x32.png', 'favicon.ico', 'site.webmanifest'
+    'favicon-16x16.png', 'favicon-32x32.png', 'favicon.ico',
+    'maskable-icon-192x192.png', 'maskable-icon-512x512.png', 'site.webmanifest'
   ]);
 });
 
@@ -54,7 +54,7 @@ test('each file kind matches its extension', () => {
 test('PNG sizes match the size in the file name', () => {
   for (const f of FILES.filter((x) => x.kind === 'png')) {
     const m = /(\d+)x(\d+)/.exec(f.name);
-    const expected = m ? Number(m[1]) : f.apple ? 180 : null;
+    const expected = m ? Number(m[1]) : f.variant === 'apple' ? 180 : null;
     assert.ok(expected, `${f.name} has a known size`);
     if (m) assert.equal(m[1], m[2], `${f.name} is square`);
     assert.equal(f.size, expected, f.name);
@@ -62,8 +62,11 @@ test('PNG sizes match the size in the file name', () => {
   }
 });
 
-test('only the Apple touch icon is drawn as an opaque square', () => {
-  assert.deepEqual(FILES.filter((f) => f.apple).map((f) => f.name), ['apple-touch-icon.png']);
+test('the Apple touch icon and maskable icons are drawn as their own variants', () => {
+  assert.deepEqual(FILES.filter((f) => f.variant === 'apple').map((f) => f.name), ['apple-touch-icon.png']);
+  assert.deepEqual(FILES.filter((f) => f.variant === 'maskable').map((f) => [f.name, f.size]),
+    [['maskable-icon-192x192.png', 192], ['maskable-icon-512x512.png', 512]]);
+  for (const f of FILES) assert.ok([undefined, 'apple', 'maskable'].includes(f.variant), f.name);
 });
 
 test('the ICO holds 16, 32 and 48 px', () => {
@@ -126,9 +129,9 @@ test('the HTML snippet only refers to files in FILES', () => {
   for (const link of snippetLinks()) assert.ok(NAMES.has(fileOf(link.href)), link.href);
 });
 
-test('the HTML snippet links every file except the Android icons', () => {
+test('the HTML snippet links every file except the Android icons, which the manifest lists', () => {
   const linked = new Set(snippetLinks().map((l) => fileOf(l.href)));
-  const expected = FILES.filter((f) => !f.name.startsWith('android-chrome')).map((f) => f.name);
+  const expected = FILES.filter((f) => !/^(android-chrome|maskable-icon)-/.test(f.name)).map((f) => f.name);
   assert.deepEqual([...linked].sort(), expected.sort());
 });
 
@@ -206,14 +209,17 @@ test('the manifest short_name is at most 12 characters', async () => {
 
 test('the manifest only refers to files in FILES, with matching sizes', async () => {
   const { json } = await manifest();
-  assert.ok(json.icons.length >= 2);
+  assert.equal(json.icons.length, 4);
   for (const icon of json.icons) {
     const f = byName(icon.src);
     assert.ok(f, `${icon.src} is in FILES`);
     assert.equal(icon.sizes, `${f.size}x${f.size}`, icon.src);
     assert.equal(icon.type, 'image/png', icon.src);
   }
-  assert.deepEqual(json.icons.map((i) => i.sizes).sort(), ['192x192', '512x512']);
+  assert.deepEqual(json.icons.map((i) => i.sizes).sort(), ['192x192', '192x192', '512x512', '512x512']);
+  // Every Android icon file is listed.
+  const android = FILES.filter((f) => /^(android-chrome|maskable-icon)-/.test(f.name)).map((f) => f.name).sort();
+  assert.deepEqual(json.icons.map((i) => i.src).sort(), android);
 });
 
 test('the manifest uses icon paths relative to the manifest file', async () => {
@@ -228,9 +234,16 @@ test('the manifest uses icon paths relative to the manifest file', async () => {
   }
 });
 
-test('the manifest has a maskable icon', { todo: 'no icon has purpose "maskable", so Android crops the regular icon' }, async () => {
+test('the manifest lists normal icons as "any" and maskable icons separately as "maskable"', async () => {
   const { json } = await manifest();
-  assert.ok(json.icons.some((i) => (i.purpose || '').split(/\s+/).includes('maskable')));
+  const byPurpose = (p) => json.icons.filter((i) => i.purpose === p).map((i) => [i.src, i.sizes]);
+  assert.deepEqual(byPurpose('any'), [['android-chrome-192x192.png', '192x192'], ['android-chrome-512x512.png', '512x512']]);
+  assert.deepEqual(byPurpose('maskable'), [['maskable-icon-192x192.png', '192x192'], ['maskable-icon-512x512.png', '512x512']]);
+  for (const icon of json.icons) {
+    assert.ok(['any', 'maskable'].includes(icon.purpose), `${icon.src} has one purpose, never "any maskable"`);
+    const file = byName(icon.src);
+    assert.equal(file.variant === 'maskable', icon.purpose === 'maskable', icon.src);
+  }
 });
 
 test('the manifest short_name never splits an emoji', async (t) => {

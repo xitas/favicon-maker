@@ -81,55 +81,134 @@ const Draw = (() => {
     return box;
   }
 
-  function drawText(ctx, size, s) {
-    if (!s.text) return;
+  /**
+   * Where the text goes in a square of `size`: the text (precomposed), its font size, and its start
+   * point on the alphabetic baseline. The PNG and SVG outputs both use this, so they match.
+   * Null when there is nothing to draw.
+   */
+  function textLayout(size, s) {
+    if (!s.text) return null;
     // Precomposed form, so an accent typed as a separate mark uses the font's own accented letter.
     const text = String(s.text).normalize('NFC');
     const box = inkBox(text, s);
-    if (!box) return;
+    if (!box) return null;
 
-    // Shrink text that would be too wide, then center its ink (not the font box) in the icon.
+    // Shrink text that would be too wide, then center its ink (not the font box) in the square.
     let px = (size * s.textScale) / 100;
     const maxWidth = size * 0.92;
     if ((box.right - box.left) * px > maxWidth) px = maxWidth / (box.right - box.left);
     px = snapSize(px);
+    return { text, px, x: size / 2 - ((box.left + box.right) / 2) * px, y: size / 2 - ((box.top + box.bottom) / 2) * px };
+  }
 
-    ctx.font = Fonts.css(s, px);
+  function drawText(ctx, area, s) {
+    const t = textLayout(area.size, s);
+    if (!t) return;
+    ctx.font = Fonts.css(s, t.px);
     ctx.textAlign = 'left';
     ctx.textBaseline = 'alphabetic';
     ctx.fillStyle = s.fg;
-    ctx.fillText(text, size / 2 - ((box.left + box.right) / 2) * px, size / 2 - ((box.top + box.bottom) / 2) * px);
+    ctx.fillText(t.text, area.x + t.x, area.y + t.y);
   }
 
-  function drawImage(ctx, size, s) {
-    const image = s.image;
-    if (!image) return;
+  /**
+   * Where the image goes in a square of `size`: the padded box it is clipped to, and the rectangle it is
+   * drawn in (contain or cover, centered). The PNG and SVG outputs both use this.
+   */
+  function imageLayout(size, s, iw, ih) {
     const pad = (size * s.pad) / 100;
     const box = size - pad * 2;
-    const iw = image.naturalWidth || 512;
-    const ih = image.naturalHeight || 512;
     const k = s.fit === 'cover' ? Math.max(box / iw, box / ih) : Math.min(box / iw, box / ih);
     const w = iw * k;
     const h = ih * k;
+    return { clip: { x: pad, y: pad, size: box }, x: (size - w) / 2, y: (size - h) / 2, w, h };
+  }
+
+  function drawImage(ctx, area, s) {
+    const image = s.image;
+    if (!image) return;
+    const l = imageLayout(area.size, s, image.naturalWidth || 512, image.naturalHeight || 512);
     ctx.save();
     ctx.beginPath();
-    ctx.rect(pad, pad, box, box);
+    ctx.rect(area.x + l.clip.x, area.y + l.clip.y, l.clip.size, l.clip.size);
     ctx.clip();
-    ctx.drawImage(image, (size - w) / 2, (size - h) / 2, w, h);
+    ctx.drawImage(image, area.x + l.x, area.y + l.y, l.w, l.h);
     ctx.restore();
   }
 
-  /** `apple` draws a full-bleed opaque square, because iOS adds its own rounded corners. */
-  function icon(ctx, size, s, apple) {
+  /* ---------- Maskable icons ---------- */
+
+  /** Android keeps the middle circle of a maskable icon: its radius is 40% of the icon (80% across). */
+  const SAFE_ZONE_RADIUS = 0.4;
+  /** Default maskable padding per side, in %: the design area is then as wide as the safe zone. */
+  const MASK_PAD_DEFAULT = 10;
+
+  /** The square the design is drawn in, inside a maskable icon of `size` with `pad`% padding per side. */
+  function maskArea(size, pad) {
+    const p = Math.min(Math.max(Number.isFinite(pad) ? pad : MASK_PAD_DEFAULT, 0), 40);
+    const inset = (size * p) / 100;
+    return { x: inset, y: inset, size: size - inset * 2 };
+  }
+
+  /** True when the point is inside the safe zone circle of an icon of `size`. */
+  function inSafeZone(size, x, y) {
+    const c = size / 2;
+    return Math.hypot(x - c, y - c) <= size * SAFE_ZONE_RADIUS;
+  }
+
+  /** The shapes Android cuts maskable icons to, as a path in a square of `size`. */
+  function maskShape(ctx, size, shape) {
+    const c = size / 2;
+    ctx.beginPath();
+    if (shape === 'circle') {
+      ctx.arc(c, c, c, 0, Math.PI * 2);
+    } else if (shape === 'squircle') {
+      // Superellipse |x|^4 + |y|^4 = 1.
+      for (let i = 0; i <= 96; i++) {
+        const t = (i / 96) * Math.PI * 2;
+        const cos = Math.cos(t);
+        const sin = Math.sin(t);
+        const x = c + c * Math.sign(cos) * Math.pow(Math.abs(cos), 0.5);
+        const y = c + c * Math.sign(sin) * Math.pow(Math.abs(sin), 0.5);
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+    } else if (shape === 'teardrop') {
+      // Rounded on three corners, square at the bottom right.
+      ctx.moveTo(c, 0);
+      ctx.arc(c, c, c, -Math.PI / 2, 0);
+      ctx.lineTo(size, size);
+      ctx.lineTo(c, size);
+      ctx.arc(c, c, c, Math.PI / 2, Math.PI * 1.5);
+    } else {
+      roundedPath(ctx, size, size * 0.2);
+      return;
+    }
+    ctx.closePath();
+  }
+
+  /* ---------- Whole icons ---------- */
+
+  /** Normalize the variant: 'apple' (also `true`), 'maskable', or 'normal'. */
+  function variantOf(v) {
+    return v === true || v === 'apple' ? 'apple' : v === 'maskable' ? 'maskable' : 'normal';
+  }
+
+  /**
+   * Draw an icon. 'apple' and 'maskable' are full-bleed opaque squares: iOS and Android cut their own
+   * shapes, and a transparent background becomes white. 'maskable' keeps the design inside the safe zone.
+   */
+  function icon(ctx, size, s, variant) {
+    const kind = variantOf(variant);
+    const square = kind !== 'normal';
     ctx.clearRect(0, 0, size, size);
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
 
     ctx.save();
-    roundedPath(ctx, size, apple ? 0 : (size * s.radius) / 100);
+    roundedPath(ctx, size, square ? 0 : (size * s.radius) / 100);
     ctx.clip();
 
-    if (apple) {
+    if (square) {
       ctx.fillStyle = s.transparent ? '#ffffff' : s.bg;
       ctx.fillRect(0, 0, size, size);
     } else if (!s.transparent) {
@@ -137,19 +216,23 @@ const Draw = (() => {
       ctx.fillRect(0, 0, size, size);
     }
 
-    if (s.mode === 'text') drawText(ctx, size, s);
-    else drawImage(ctx, size, s);
+    const area = kind === 'maskable' ? maskArea(size, s.maskPad) : { x: 0, y: 0, size };
+    if (s.mode === 'text') drawText(ctx, area, s);
+    else drawImage(ctx, area, s);
 
     ctx.restore();
   }
 
   /** Draw onto a new offscreen canvas of the given size. */
-  function render(size, s, apple) {
+  function render(size, s, variant) {
     const canvas = document.createElement('canvas');
     canvas.width = canvas.height = size;
-    icon(canvas.getContext('2d'), size, s, !!apple);
+    icon(canvas.getContext('2d'), size, s, variant);
     return canvas;
   }
 
-  return { icon, render, snapSize };
+  return {
+    icon, render, snapSize, textLayout, imageLayout,
+    maskArea, inSafeZone, maskShape, SAFE_ZONE_RADIUS, MASK_PAD_DEFAULT
+  };
 })();

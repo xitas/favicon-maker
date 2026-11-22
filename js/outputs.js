@@ -12,9 +12,11 @@ const Outputs = (() => {
     { name: 'favicon.ico', kind: 'ico', sizes: [16, 32, 48], note: 'Legacy browsers. Holds 16, 32 and 48 px.', dims: '16, 32, 48' },
     { name: 'favicon-16x16.png', kind: 'png', size: 16, note: 'Browser tab', dims: '16 × 16' },
     { name: 'favicon-32x32.png', kind: 'png', size: 32, note: 'Browser tab on high-DPI screens', dims: '32 × 32' },
-    { name: 'apple-touch-icon.png', kind: 'png', size: 180, apple: true, note: 'iPhone and iPad home screen (square, no transparency)', dims: '180 × 180' },
+    { name: 'apple-touch-icon.png', kind: 'png', size: 180, variant: 'apple', note: 'iPhone and iPad home screen (square, no transparency)', dims: '180 × 180' },
     { name: 'android-chrome-192x192.png', kind: 'png', size: 192, note: 'Android home screen', dims: '192 × 192' },
     { name: 'android-chrome-512x512.png', kind: 'png', size: 512, note: 'Android splash screen and installs', dims: '512 × 512' },
+    { name: 'maskable-icon-192x192.png', kind: 'png', size: 192, variant: 'maskable', note: 'Android icon that fills any shape (square, design inside the safe zone)', dims: '192 × 192' },
+    { name: 'maskable-icon-512x512.png', kind: 'png', size: 512, variant: 'maskable', note: 'Large Android icon that fills any shape', dims: '512 × 512' },
     { name: 'site.webmanifest', kind: 'manifest', note: 'Web app manifest that points to the Android icons', dims: 'JSON' }
   ];
 
@@ -126,9 +128,12 @@ const Outputs = (() => {
       name: s.appName,
       short_name: clip(s.appName, SHORT_NAME_MAX),
       // Relative to the manifest file, so they work at the site root and in any folder.
+      // Normal and maskable icons are listed separately: "any maskable" would crop the normal ones.
       icons: [
-        { src: 'android-chrome-192x192.png', sizes: '192x192', type: 'image/png' },
-        { src: 'android-chrome-512x512.png', sizes: '512x512', type: 'image/png' }
+        { src: 'android-chrome-192x192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+        { src: 'android-chrome-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+        { src: 'maskable-icon-192x192.png', sizes: '192x192', type: 'image/png', purpose: 'maskable' },
+        { src: 'maskable-icon-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }
       ],
       theme_color: color,
       background_color: color,
@@ -158,7 +163,7 @@ const Outputs = (() => {
       const buffers = await Promise.all(blobs.map((b) => b.arrayBuffer()));
       return new Blob([Ico.make(file.sizes, buffers)], { type: 'image/x-icon' });
     }
-    return toBlob(Draw.render(file.size, s, file.apple));
+    return toBlob(Draw.render(file.size, s, file.variant));
   }
 
   /** Build every file and pack them into one ZIP Blob. */

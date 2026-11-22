@@ -27,7 +27,7 @@ async function downloadZip(page) {
 
 /** Check every file in the ZIP has the right format and size. */
 function checkZipContents(files) {
-  assert.deepEqual(Object.keys(files).sort(), NAMES, 'all 7 files');
+  assert.deepEqual(Object.keys(files).sort(), NAMES, 'every file in FILES');
   for (const f of FILES.filter((x) => x.kind === 'png')) {
     assert.deepEqual(pngSize(files[f.name]), { width: f.size, height: f.size }, f.name);
   }
@@ -42,7 +42,7 @@ function checkZipContents(files) {
 
   const manifest = JSON.parse(files['site.webmanifest'].toString('utf8'));
   assert.equal(typeof manifest.name, 'string');
-  assert.equal(manifest.icons.length, 2);
+  assert.equal(manifest.icons.length, 4);
   return { manifest };
 }
 
@@ -96,7 +96,7 @@ for (const target of targets()) {
       }
     });
 
-    test('Download all gives a ZIP with all 7 files in text mode', async () => {
+    test('Download all gives a ZIP with every file in text mode', async () => {
       const { context, page, errors } = await openApp(browser, url);
       try {
         const files = await downloadZip(page);
@@ -332,7 +332,7 @@ for (const target of targets()) {
         // The manifest inside the ZIP keeps icon paths relative, whatever the folder.
         const files = await downloadZip(page);
         const manifest = JSON.parse(files['site.webmanifest'].toString('utf8'));
-        assert.deepEqual(manifest.icons.map((i) => i.src), ['android-chrome-192x192.png', 'android-chrome-512x512.png']);
+        assert.deepEqual(manifest.icons.map((i) => i.src), ['android-chrome-192x192.png', 'android-chrome-512x512.png', 'maskable-icon-192x192.png', 'maskable-icon-512x512.png']);
         assert.deepEqual(errors, []);
       } finally {
         await context.close();

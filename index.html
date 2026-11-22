@@ -87,6 +87,13 @@
             <span class="row">Corner radius <output id="radiusOut" for="radius">22%</output></span>
             <input type="range" id="radius" min="0" max="50" value="22">
           </label>
+          <div class="field">
+            <label class="col" for="maskPad">
+              <span class="row">Maskable padding <output id="maskPadOut" for="maskPad">10%</output></span>
+              <input type="range" id="maskPad" min="0" max="30" value="10" aria-describedby="maskPadHint">
+            </label>
+            <p id="maskPadHint" class="hint note-line">Space around your design in the Android maskable icon. Add more if the shapes below cut it off.</p>
+          </div>
           <label class="col" for="appName">App name (used in the manifest)
             <input id="appName" type="text" value="My App" maxlength="45" autocomplete="off">
           </label>
@@ -101,6 +108,12 @@
             <div class="tab tab-b"><canvas id="tabB" width="32" height="32" aria-hidden="true"></canvas><span id="tabTitleB">My App</span></div>
           </div>
           <ul id="sizes" class="sizes"></ul>
+          <div class="sub-head">
+            <h3 id="masksTitle">Android shapes</h3>
+            <label class="check" for="safeZone"><input type="checkbox" id="safeZone"> Show safe zone</label>
+          </div>
+          <p class="hint">Android cuts the maskable icon to the shape the phone uses. Everything inside the dashed safe zone always shows.</p>
+          <ul id="masks" class="sizes masks" aria-labelledby="masksTitle"></ul>
         </section>
 
         <section class="panel" aria-labelledby="filesTitle">

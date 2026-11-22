@@ -444,6 +444,11 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
 }
 .sizes canvas { transition: transform 0.3s var(--spring), box-shadow 0.3s; transform-origin: bottom left; }
 .sizes li:hover canvas { transform: translateY(-4px) scale(1.06); box-shadow: 0 0 0 1px var(--ring), var(--shadow-lift); }
+/* Android shape previews */
+.sub-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin: 22px 0 4px; }
+.sub-head h3 { margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.sub-head + .hint { margin-bottom: 12px; }
+.masks canvas { border-radius: 0; box-shadow: none; }
 .sizes .cap { font-size: 11px; color: var(--muted); font-family: var(--font-code); transition: color 0.2s; }
 .sizes li:hover .cap { color: var(--fg); }
 

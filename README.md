@@ -9,12 +9,13 @@ A favicon generator built with plain HTML, CSS and JavaScript. Make an icon from
 - **Two sources:** type up to 3 letters or emoji, or upload an image (PNG, JPG, SVG, WebP)
 - **Design controls:** 8 bundled fonts, bold, text size and color, background color, transparent background and corner radius
 - **Emoji style:** this device's emoji, or the same emoji everywhere with a bundled emoji font
-- **Live preview:** browser tab mockups (light and dark) and the icon at 16, 32, 48, 180 and 512 px
+- **Live preview:** browser tab mockups (light and dark), the icon at 16, 32, 48, 180 and 512 px, and the Android maskable icon cut to the circle, squircle, rounded square and teardrop shapes, with an optional safe zone overlay
 - **All the files you need:**
   - `favicon.ico` (16, 32 and 48 px in one file)
   - `favicon-16x16.png` and `favicon-32x32.png`
   - `apple-touch-icon.png` (180 × 180)
-  - `android-chrome-192x192.png` and `android-chrome-512x512.png`
+  - `android-chrome-192x192.png` and `android-chrome-512x512.png` (Android home screen and installs)
+  - `maskable-icon-192x192.png` and `maskable-icon-512x512.png` (Android icons that fill whatever shape the phone uses)
   - `site.webmanifest`
 - **Download one file or everything** as a single `favicons.zip`
 - **Ready-to-paste HTML** for the `<head>` of your site, with paths for the folder your files go in
@@ -110,6 +111,7 @@ The icon paths inside `site.webmanifest` are relative to the manifest, so they w
 - `favicon.ico` is built in the browser from PNG images at 16, 32 and 48 px.
 - The ZIP file is built in the browser too, with no library.
 - `apple-touch-icon.png` is always a full square with a solid background, because iOS adds its own rounded corners and does not support transparency. If you choose a transparent background, it uses white.
+- The maskable icons are full squares too, with no rounded corners and no transparency, because Android cuts them to its own shape. Only the middle circle (80% across) is sure to show, so your design is drawn inside it. Use **Maskable padding** to shrink it further. The manifest lists them with `"purpose": "maskable"`, separately from the normal icons, which have `"purpose": "any"`.
 
 ## Tips
 
