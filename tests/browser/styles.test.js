@@ -257,7 +257,9 @@ describe('shapes, backgrounds and borders', () => {
       await page.emulateMedia({ colorScheme: 'dark' });
       const dark = await rasterizeSvg(page, svg, 64);
       assert.ok(near(px(dark, 32, 32), [0x11, 0x11, 0x11, 255], 8), `dark center ${px(dark, 32, 32)}`);
-      const tab = await page.evaluate(() => Array.from(document.getElementById('tabB').getContext('2d').getImageData(16, 16, 1, 1).data));
+      await page.click('#ptab-browser');
+      await settled(page);
+      const tab = await page.evaluate(() => Array.from(document.getElementById('tabB').getContext('2d').getImageData(8, 8, 1, 1).data));
       assert.ok(tab[0] < 60 && tab[1] < 60, `the dark tab shows dark colors ${tab}`);
     } finally {
       await context.close();

@@ -9,7 +9,7 @@ A favicon generator built with plain HTML, CSS and JavaScript. Make an icon from
 - **Three sources:** type up to 3 letters or emoji, pick one of about 2,100 icons from the Lucide library, or upload an image (PNG, JPG, SVG, WebP)
 - **Design controls:** 8 bundled fonts, bold, text size and color; a rounded square, circle, squircle or square shape; a solid, linear gradient or radial gradient background, or none; an optional border; position fine-tuning; and optional different colors in dark mode
 - **Emoji style:** this device's emoji, or the same emoji everywhere with a bundled emoji font
-- **Live preview:** browser tab mockups (light and dark), the icon at 16, 32, 48, 180 and 512 px, and the Android maskable icon cut to the circle, squircle, rounded square and teardrop shapes, with an optional safe zone overlay
+- **Live previews, at real size:** the icon at 16, 32, 48, 180 and 512 px; the Android maskable icon cut to the circle, squircle, rounded square and teardrop shapes, with an optional safe zone overlay; light and dark browser tabs, a bookmarks bar and a search result; and iPhone and Android home screens on a light, dark or colorful wallpaper. Everything around the icon is a plain gray placeholder.
 - **All the files you need:**
   - `favicon.ico` (16, 32 and 48 px in one file, for older browsers)
   - `favicon.svg` (sharp at every size, and can switch colors in dark mode; made when the design can be a true vector)

@@ -19,10 +19,25 @@
   --glow: rgb(0 0 0 / 0.04);        /* soft ambient glow behind the page */
   --check-a: #ffffff;      /* transparency checkerboard behind previews */
   --check-b: #e5e5e5;
-  --tab-a-bg: #e5e5e5;     /* mock browser tabs: a light and a dark browser, fixed in both themes */
+  --tab-a-bg: #e5e5e5;     /* mock browser: a light and a dark one, fixed in both themes */
   --tab-a-fg: #171717;
-  --tab-b-bg: #333333;
+  --tab-a-active: #ffffff;
+  --tab-b-bg: #202020;
   --tab-b-fg: #ededed;
+  --tab-b-active: #3a3a3a;
+  --ph-light: #c9c9c9;     /* gray placeholders in the mockups */
+  --ph-dark: #5a5a5a;
+  --serp-bg: #ffffff;      /* mock search result, fixed in both themes */
+  --serp-fg: #1f1f1f;
+  --serp-muted: #5f5f5f;
+  --serp-circle: #f0f0f0;
+  --wall-light-a: #f4f4f4; /* home screen wallpapers: light, dark and colorful */
+  --wall-light-b: #d4d4d4;
+  --wall-dark-a: #262626;
+  --wall-dark-b: #0a0a0a;
+  --wall-color-a: #ff7a59;
+  --wall-color-b: #c13dd6;
+  --wall-color-c: #3a7bff;
   --swatch-line: #8f8f8f;  /* edge around color swatches, so white shows on white (3.2:1 on white) */
   --shadow-color: 0 0 0;   /* RGB channels for all shadows */
   --shadow: 0 1px 2px rgb(var(--shadow-color) / 0.05), 0 4px 16px rgb(var(--shadow-color) / 0.06);
@@ -476,8 +491,78 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
 .tab:hover { transform: translateY(-2px); }
 .tab span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .tab canvas { width: 16px; height: 16px; flex: none; }
-.tab-a { background: var(--tab-a-bg); color: var(--tab-a-fg); }
-.tab-b { background: var(--tab-b-bg); color: var(--tab-b-fg); }
+/* Preview tabs */
+.ptabs { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 16px; padding: 4px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; }
+.ptabs [role="tab"] { flex: 1 1 auto; height: 32px; border: 0; background: transparent; color: var(--muted); }
+.ptabs [role="tab"]:hover { color: var(--fg); background: transparent; }
+.ptabs [role="tab"][aria-selected="true"] { background: var(--accent); color: var(--accent-fg); font-weight: 600; }
+.ppanel:focus-visible { outline: 2px solid var(--ring); outline-offset: 4px; border-radius: 6px; }
+h3.mini { margin: 18px 0 8px; font-size: 12px; font-weight: 600; color: var(--muted); }
+h3.mini:first-child { margin-top: 0; }
+canvas.real { display: block; flex: none; }
+
+/* Placeholders: plain gray shapes, standing in for other sites and apps. */
+.ph-dot { width: 16px; height: 16px; border-radius: 4px; background: var(--ph-light); flex: none; }
+.ph-bar { display: block; height: 8px; border-radius: 4px; background: var(--ph-light); }
+.ph-bar.w40 { width: 40px; }
+.ph-bar.w60 { width: 60px; }
+
+/* Browser tab strips */
+.strip { display: flex; align-items: flex-end; gap: 2px; padding: 6px 8px 0; border-radius: 10px 10px 0 0; overflow: hidden; }
+.strip + .strip { margin-top: 8px; }
+.strip-light { background: var(--tab-a-bg); color: var(--tab-a-fg); }
+.strip-dark { background: var(--tab-b-bg); color: var(--tab-b-fg); }
+.strip-dark .ph-dot, .strip-dark .ph-bar { background: var(--ph-dark); }
+.btab { display: flex; align-items: center; gap: 8px; min-width: 0; height: 32px; padding: 0 12px; border-radius: 8px 8px 0 0; font: 12px system-ui, -apple-system, "Segoe UI", sans-serif; }
+.btab.is-active { flex: 0 1 200px; }
+.strip-light .btab.is-active { background: var(--tab-a-active); }
+.strip-dark .btab.is-active { background: var(--tab-b-active); }
+.btab-title { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.btab-x { opacity: 0.6; }
+
+/* Bookmarks bar */
+.bookmarks { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; padding: 8px 10px; border-radius: 8px; background: var(--tab-a-active); color: var(--tab-a-fg); border: 1px solid var(--line); font: 12px system-ui, -apple-system, "Segoe UI", sans-serif; }
+.bm { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.bm #bmLabel { max-width: 120px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Search result */
+.serp { display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: 8px; background: var(--serp-bg); color: var(--serp-fg); border: 1px solid var(--line); font: 14px system-ui, -apple-system, "Segoe UI", sans-serif; }
+.serp-head { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.serp-circle { display: grid; place-items: center; width: 28px; height: 28px; flex: none; border-radius: 50%; background: var(--serp-circle); border: 1px solid #e0e0e0; }
+.serp-site { display: flex; flex-direction: column; min-width: 0; line-height: 1.3; }
+.serp-name { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.serp-url { font-size: 12px; color: var(--serp-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.serp .ph-bar { background: #d9d9d9; }
+.serp-title { width: 70%; height: 14px; margin-top: 2px; }
+.serp-line { width: 95%; }
+.serp-line.short { width: 60%; }
+
+/* Home screens */
+.wall-choice { display: inline-flex; gap: 4px; padding: 4px; margin-bottom: 12px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; }
+.wall-choice [role="radio"] { height: 30px; border: 0; background: transparent; color: var(--muted); font-size: 12px; }
+.wall-choice [role="radio"][aria-checked="true"] { background: var(--accent); color: var(--accent-fg); font-weight: 600; }
+.phones { display: flex; flex-wrap: wrap; gap: 16px; }
+.phone { margin: 0; flex: 1 1 260px; max-width: 300px; display: flex; flex-direction: column; gap: 6px; }
+.phone figcaption { font-size: 12px; color: var(--muted); }
+.screen { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px 12px; padding: 24px 16px; border-radius: 22px; border: 1px solid var(--line); }
+.screen[data-wall="light"] { background: linear-gradient(160deg, var(--wall-light-a), var(--wall-light-b)); color: #1a1a1a; }
+.screen[data-wall="dark"] { background: linear-gradient(160deg, var(--wall-dark-a), var(--wall-dark-b)); color: #ffffff; }
+.screen[data-wall="color"] { background: linear-gradient(150deg, var(--wall-color-a), var(--wall-color-b) 55%, var(--wall-color-c)); color: #ffffff; }
+.screen .app { display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0; }
+.screen .app-name { max-width: 100%; font: 11px system-ui, -apple-system, "Segoe UI", sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.screen[data-wall="dark"] .app-name, .screen[data-wall="color"] .app-name { text-shadow: 0 1px 2px rgb(0 0 0 / 0.5); }
+.ph-app { width: 60px; height: 60px; background: var(--ph-light); }
+.ph-app.ios { border-radius: 14px; }
+.ph-app.round { width: 48px; height: 48px; border-radius: 50%; }
+.screen .lbl { width: 36px; height: 6px; }
+.screen[data-wall="dark"] .ph-app, .screen[data-wall="dark"] .ph-bar { background: var(--ph-dark); }
+.screen[data-wall="color"] .ph-app, .screen[data-wall="color"] .ph-bar { background: rgb(255 255 255 / 0.45); }
+.screen.android .app { min-height: 66px; }
+
+/* Choosing the Android shape */
+.mask-option { cursor: pointer; padding: 4px; border-radius: 10px; border: 2px solid transparent; }
+.mask-option[aria-checked="true"] { border-color: var(--fg); }
+.mask-option:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
 
 .sizes { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; align-items: flex-end; gap: 18px; }
 .sizes li { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }

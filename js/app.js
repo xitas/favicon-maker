@@ -1,9 +1,8 @@
 /* Page UI: reads the form, keeps previews in sync, wires up downloads, and saves, restores, shares and undoes
-   designs. Depends on Svg, Fonts, Icons, Draw, Outputs, Design, Store, Dialog. */
+   designs. Depends on Svg, Fonts, Icons, Draw, Outputs, Design, Store, Dialog, Previews. */
 (function () {
   'use strict';
 
-  const PREVIEW_SIZES = [16, 32, 48, 180, 512];
   const THUMB_SIZE = 80;
   const TEXT_LIMIT_NOTE = 'Up to ' + Outputs.TEXT_MAX + ' characters fit in a favicon.';
   const NO_IMAGE_NOTE = 'Choose an image first.';
@@ -44,8 +43,6 @@
   const SECTIONS = Array.from(document.querySelectorAll('.controls details.section'));
 
   const RANGES = ['textScale', 'pad', 'radius', 'maskPad', 'angle', 'borderWidth', 'offsetX', 'offsetY', 'iconStroke', 'iconScale'];
-  const MASK_SHAPES = [['circle', 'Circle'], ['squircle', 'Squircle'], ['rounded', 'Rounded square'], ['teardrop', 'Teardrop']];
-  const MASK_PREVIEW = 96;
   const INPUTS = ['text', 'font', 'bold', 'emoji', 'textScale', 'fg', 'fit', 'pad', 'bg', 'transparent', 'radius', 'maskPad', 'safeZone', 'dark', 'darkFg', 'darkBg', 'appName', 'basePath',
     'shape', 'bgType', 'bg2', 'angle', 'darkBg2', 'border', 'borderWidth', 'borderColor', 'offsetX', 'offsetY',
     'iconStroke', 'iconScale'];
@@ -56,9 +53,7 @@
   let imageUrl = null; // its object URL, released when another image replaces it
   let imageSvg = null; // the sanitized SVG, when the image is one
 
-  const previews = []; // { canvas, size }
   const thumbs = [];   // { canvas, size, variant }
-  const masks = [];    // { canvas, shape }
   const downloads = []; // { button, busy, note } for every download button
 
   function readSettings() {
@@ -300,65 +295,6 @@
   }
 
   /* ---------- Page build ---------- */
-  /** The maskable icon cut to each shape Android uses. */
-  function buildMaskList() {
-    MASK_SHAPES.forEach(([shape, name]) => {
-      const li = document.createElement('li');
-      const canvas = document.createElement('canvas');
-      canvas.width = canvas.height = MASK_PREVIEW;
-      canvas.setAttribute('role', 'img');
-      canvas.setAttribute('aria-label', 'Maskable icon cut to a ' + name.toLowerCase());
-      canvas.dataset.shape = shape;
-      const cap = document.createElement('span');
-      cap.className = 'cap';
-      cap.textContent = name;
-      li.append(canvas, cap);
-      el.masks.appendChild(li);
-      masks.push({ canvas, shape });
-    });
-  }
-
-  /** Draw the maskable icon, cut to a shape, with the safe zone circle on top when asked. */
-  function drawMask(m, s) {
-    const ctx = m.canvas.getContext('2d');
-    const n = m.canvas.width;
-    Draw.icon(ctx, n, s, 'maskable');
-    ctx.save();
-    ctx.globalCompositeOperation = 'destination-in';
-    Draw.maskShape(ctx, n, m.shape);
-    ctx.fill();
-    ctx.restore();
-    if (el.safeZone.checked) {
-      ctx.save();
-      ctx.beginPath();
-      ctx.arc(n / 2, n / 2, n * Draw.SAFE_ZONE_RADIUS, 0, Math.PI * 2);
-      ctx.lineWidth = 3;
-      ctx.strokeStyle = 'rgba(0, 0, 0, 0.55)';
-      ctx.stroke();
-      ctx.lineWidth = 1.5;
-      ctx.setLineDash([5, 4]);
-      ctx.strokeStyle = '#ffffff';
-      ctx.stroke();
-      ctx.restore();
-    }
-  }
-
-  function buildPreviewList() {
-    PREVIEW_SIZES.forEach((size) => {
-      const li = document.createElement('li');
-      const canvas = document.createElement('canvas');
-      canvas.width = canvas.height = size;
-      canvas.style.width = canvas.style.height = Math.min(size, 128) + 'px';
-      canvas.setAttribute('aria-label', size + ' pixel preview');
-      const cap = document.createElement('span');
-      cap.className = 'cap';
-      cap.textContent = size + ' px' + (size > 128 ? ' (scaled)' : '');
-      li.append(canvas, cap);
-      el.sizes.appendChild(li);
-      previews.push({ canvas, size });
-    });
-  }
-
   /** Run a download: busy state while it builds, and a message near the button if it fails. */
   async function runDownload(entry, name, buildBlob) {
     entry.busy = true;
@@ -518,18 +454,13 @@
     el.darkColors.hidden = !s.dark;
     el.darkFgLabel.hidden = s.mode !== 'text';
     el.bg.disabled = s.transparent;
-    el.tabTitleA.textContent = el.tabTitleB.textContent = s.appName;
     el.snippet.querySelector('code').textContent = Outputs.snippet(s);
   }
 
   /** Draw every preview with settings whose fonts are loaded. */
   function draw(s) {
-    previews.forEach((p) => Draw.icon(p.canvas.getContext('2d'), p.size, s, false));
-    masks.forEach((m) => drawMask(m, s));
+    Previews.draw(s);
     thumbs.forEach((t) => Draw.icon(t.canvas.getContext('2d'), t.size, s, t.variant));
-    // The light browser tab shows the normal colors; the dark one shows the dark mode colors when set.
-    Draw.icon(el.tabA.getContext('2d'), 32, s, false);
-    Draw.icon(el.tabB.getContext('2d'), 32, s.dark ? Object.assign({}, s, { fg: s.darkFg, bg: s.darkBg, bg2: s.darkBg2 }) : s, false);
     Draw.icon(el.heroIcon.getContext('2d'), el.heroIcon.width, s, false);
   }
 
@@ -1206,8 +1137,7 @@
   /* ---------- Start ---------- */
   setUpSections();
   buildFontMenu();
-  buildPreviewList();
-  buildMaskList();
+  Previews.init(refresh);
   buildFileList();
   bindEvents();
   enforceTextLimit();

@@ -160,7 +160,9 @@ for (const target of targets()) {
         assert.ok(!hasColor(light, [0xff, 0xcc, 0x00]), 'not in light mode');
 
         // The preview: the dark browser tab shows the dark colors, the light tab the normal ones.
-        const tab = (id) => page.evaluate((id) => Array.from(document.getElementById(id).getContext('2d').getImageData(16, 2, 1, 1).data), id);
+        await page.click('#ptab-browser');
+        await settled(page);
+        const tab = (id) => page.evaluate((id) => Array.from(document.getElementById(id).getContext('2d').getImageData(8, 1, 1, 1).data), id);
         assert.ok(near(await tab('tabB'), [0x22, 0x22, 0x22, 255]), 'dark tab');
         assert.ok(near(await tab('tabA'), [11, 122, 117, 255]), 'light tab');
 
