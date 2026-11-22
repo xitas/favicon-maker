@@ -449,7 +449,7 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
 .sub-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin: 22px 0 4px; }
 .sub-head h3 { margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
 .sub-head + .hint { margin-bottom: 12px; }
-.masks canvas { border-radius: 0; box-shadow: none; }
+.masks canvas { width: 72px; height: 72px; border-radius: 0; box-shadow: none; }
 .sizes .cap { font-size: 11px; color: var(--muted); font-family: var(--font-code); transition: color 0.2s; }
 .sizes li:hover .cap { color: var(--fg); }
 
@@ -502,6 +502,8 @@ pre {
   .hero-icon { width: 48px; height: 48px; }
   .files li { grid-template-columns: 44px minmax(0, 1fr); }
   .files li button { grid-column: 1 / -1; width: 100%; }
+  .masks { gap: 12px; }
+  .masks canvas { width: 64px; height: 64px; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation: none !important; }

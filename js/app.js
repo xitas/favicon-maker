@@ -146,7 +146,6 @@
       const li = document.createElement('li');
       const canvas = document.createElement('canvas');
       canvas.width = canvas.height = MASK_PREVIEW;
-      canvas.style.width = canvas.style.height = '72px';
       canvas.setAttribute('role', 'img');
       canvas.setAttribute('aria-label', 'Maskable icon cut to a ' + name.toLowerCase());
       canvas.dataset.shape = shape;
