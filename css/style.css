@@ -770,6 +770,9 @@ pre {
   .hero-icon { width: 48px; height: 48px; }
   .files li { grid-template-columns: 44px minmax(0, 1fr); }
   .files li button { grid-column: 1 / -1; width: 100%; }
+  /* All four preview tabs on one row: equal widths, smaller text, long labels wrap inside their button. */
+  .ptabs { flex-wrap: nowrap; }
+  .ptabs [role="tab"] { flex: 1 1 0; min-width: 0; height: auto; min-height: 36px; padding: 4px; font-size: 12px; line-height: 1.2; }
   .masks { gap: 12px; }
   .masks canvas { width: 64px; height: 64px; }
 }
