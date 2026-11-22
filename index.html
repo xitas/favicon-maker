@@ -221,6 +221,7 @@
             <button type="button" role="tab" id="ptab-sizes" aria-controls="pp-sizes" aria-selected="true">Sizes</button>
             <button type="button" role="tab" id="ptab-browser" aria-controls="pp-browser" aria-selected="false" tabindex="-1">Browser</button>
             <button type="button" role="tab" id="ptab-home" aria-controls="pp-home" aria-selected="false" tabindex="-1">Home screens</button>
+            <button type="button" role="tab" id="ptab-zoom" aria-controls="pp-zoom" aria-selected="false" tabindex="-1">Zoom</button>
           </div>
 
           <div class="ppanel" role="tabpanel" id="pp-sizes" aria-labelledby="ptab-sizes" tabindex="0">
@@ -265,6 +266,21 @@
               <span class="ph-bar serp-line"></span>
               <span class="ph-bar serp-line short"></span>
             </div>
+          </div>
+
+          <div class="ppanel" role="tabpanel" id="pp-zoom" aria-labelledby="ptab-zoom" tabindex="0" hidden>
+            <label class="check" for="zoomGrid"><input type="checkbox" id="zoomGrid"> Show the pixel grid</label>
+            <div class="zooms">
+              <figure class="zoom">
+                <canvas id="zoom16" class="zoom-canvas" role="img" aria-label="The 16 pixel icon, 8 times larger"></canvas>
+                <figcaption>16 px, 8 times larger</figcaption>
+              </figure>
+              <figure class="zoom">
+                <canvas id="zoom32" class="zoom-canvas" role="img" aria-label="The 32 pixel icon, 8 times larger"></canvas>
+                <figcaption>32 px, 8 times larger</figcaption>
+              </figure>
+            </div>
+            <p class="hint">Each square is one pixel of the real favicon-16x16.png and favicon-32x32.png, without smoothing, so you can see exactly how small the details get.</p>
           </div>
 
           <div class="ppanel" role="tabpanel" id="pp-home" aria-labelledby="ptab-home" tabindex="0" hidden>

@@ -2,7 +2,8 @@
 /* The realistic previews: browser tabs, bookmarks, search result, home screens and wallpapers. */
 const { describe, test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
-const { launch, openApp, settled, targets } = require('../helpers/browser');
+const { launch, openApp, settled, download, targets } = require('../helpers/browser');
+const { readPng } = require('../helpers/formats');
 
 async function setAll(page, values) {
   await page.evaluate((values) => {
@@ -44,20 +45,22 @@ for (const target of targets()) {
         })));
         let s = await state();
         assert.equal(await page.locator('.ptabs').getAttribute('role'), 'tablist');
-        assert.deepEqual(s.map((t) => t.selected), ['true', 'false', 'false']);
+        assert.deepEqual(s.map((t) => t.selected), ['true', 'false', 'false', 'false']);
         assert.ok(s.every((t) => t.labelled), 'each panel is labelled by its tab');
-        assert.deepEqual(s.map((t) => t.tabindex), [0, -1, -1], 'only the chosen tab is in the tab order');
+        assert.deepEqual(s.map((t) => t.tabindex), [0, -1, -1, -1], 'only the chosen tab is in the tab order');
 
         await page.focus('#ptab-sizes');
         await page.keyboard.press('ArrowRight');
         s = await state();
-        assert.deepEqual(s.map((t) => [t.selected, t.panelHidden]), [['false', true], ['true', false], ['false', true]]);
+        assert.deepEqual(s.map((t) => [t.selected, t.panelHidden]), [['false', true], ['true', false], ['false', true], ['false', true]]);
         assert.equal(await page.evaluate(() => document.activeElement.id), 'ptab-browser');
         await page.keyboard.press('End');
-        assert.equal(await page.evaluate(() => document.activeElement.id), 'ptab-home');
+        assert.equal(await page.evaluate(() => document.activeElement.id), 'ptab-zoom');
         await page.keyboard.press('ArrowRight');
         assert.equal(await page.evaluate(() => document.activeElement.id), 'ptab-sizes', 'wraps around');
         await page.keyboard.press('ArrowLeft');
+        await page.keyboard.press('ArrowLeft');
+        assert.equal(await page.evaluate(() => document.activeElement.id), 'ptab-home');
         // Tab moves into the panel content, not to the next tab.
         await page.keyboard.press('Tab');
         assert.equal(await page.evaluate(() => document.activeElement.id), 'pp-home');
@@ -149,6 +152,61 @@ for (const target of targets()) {
         await page.reload();
         await page.waitForFunction(() => document.documentElement.dataset.ready === '1');
         assert.equal((await wall())[0], 'color', 'remembered');
+        assert.deepEqual(errors, []);
+      } finally {
+        await context.close();
+      }
+    });
+
+    test('zoom: the 16 and 32 px files, 8 times larger, pixel for pixel, with an optional grid', async () => {
+      const { context, page, errors } = await openApp(browser, url);
+      try {
+        await page.fill('#text', 'Ag');
+        await page.click('#ptab-zoom');
+        await settled(page);
+        for (const n of [16, 32]) {
+          const file = readPng((await download(page, `button[aria-label="Download favicon-${n}x${n}.png"]`)).data);
+          const zoom = await page.evaluate((n) => {
+            const c = document.getElementById('zoom' + n);
+            return { w: c.width, css: c.getBoundingClientRect().width, rendering: getComputedStyle(c).imageRendering, data: Array.from(c.getContext('2d').getImageData(0, 0, c.width, c.height).data) };
+          }, n);
+          assert.equal(zoom.css, n * 8);
+          assert.equal(zoom.w, n * 8);
+          assert.equal(zoom.rendering, 'pixelated');
+          // The middle of each 8 × 8 block is exactly the file's pixel.
+          for (let y = 0; y < n; y++) {
+            for (let x = 0; x < n; x++) {
+              const z = ((y * 8 + 4) * zoom.w + (x * 8 + 4)) * 4;
+              const p = (y * n + x) * 4;
+              assert.deepEqual(zoom.data.slice(z, z + 4), Array.from(file.data.subarray(p, p + 4)), `${n} px: pixel ${x},${y}`);
+              // Sharp edges: the whole block is one color.
+              const corner = ((y * 8 + 1) * zoom.w + (x * 8 + 1)) * 4;
+              assert.deepEqual(zoom.data.slice(corner, corner + 4), zoom.data.slice(z, z + 4), `${n} px: block ${x},${y} is flat`);
+            }
+          }
+        }
+
+        // The grid: lines between the pixels, and it's remembered.
+        const lineAt = () => page.evaluate(() => {
+          const c = document.getElementById('zoom16');
+          const ctx = c.getContext('2d');
+          const line = Array.from(ctx.getImageData(8, 60, 1, 1).data);
+          const inside = Array.from(ctx.getImageData(12, 60, 1, 1).data);
+          return JSON.stringify(line) !== JSON.stringify(inside);
+        });
+        assert.equal(await lineAt(), false, 'no grid at first');
+        await page.check('#zoomGrid');
+        await settled(page);
+        assert.equal(await lineAt(), true, 'grid lines between pixels');
+        await page.reload();
+        await page.waitForFunction(() => document.documentElement.dataset.ready === '1');
+        await settled(page);
+        assert.equal(await page.isChecked('#zoomGrid'), true);
+        assert.equal(await lineAt(), true);
+        // The zoom follows the design live.
+        const before = await page.evaluate(() => document.getElementById('zoom16').toDataURL());
+        await setAll(page, { bg: '#ff00ff' });
+        assert.notEqual(await page.evaluate(() => document.getElementById('zoom16').toDataURL()), before);
         assert.deepEqual(errors, []);
       } finally {
         await context.close();

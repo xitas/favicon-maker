@@ -12,7 +12,7 @@ const Previews = (() => {
   const MASK_PREVIEW = 96;
   const TABS = ['sizes', 'browser', 'home', 'zoom'];
 
-  const ui = { tab: 'sizes', wall: 'light', androidShape: 'circle' };
+  const ui = { tab: 'sizes', wall: 'light', androidShape: 'circle', zoomGrid: false };
   let redraw = () => {};
   const sizes = []; // { canvas, size }
   const masks = []; // { canvas, shape, item }
@@ -23,6 +23,7 @@ const Previews = (() => {
       if (TABS.indexOf(saved.tab) !== -1 && $('ptab-' + saved.tab)) ui.tab = saved.tab;
       if (['light', 'dark', 'color'].indexOf(saved.wall) !== -1) ui.wall = saved.wall;
       if (MASK_SHAPES.some((m) => m[0] === saved.androidShape)) ui.androidShape = saved.androidShape;
+      ui.zoomGrid = saved.zoomGrid === true;
     } catch (e) { /* defaults */ }
   }
 
@@ -247,6 +248,36 @@ const Previews = (() => {
     $('iosLabel').textContent = $('androidLabel').textContent = s.appName;
   }
 
+  /* ---------- Pixel zoom ---------- */
+
+  const ZOOM = 8;
+
+  /**
+   * The 16 and 32 px icons, exactly as in the files, 8 times larger with sharp pixel edges, and a grid
+   * between the pixels when asked.
+   */
+  function drawZoom(s) {
+    const grid = $('zoomGrid').checked;
+    [16, 32].forEach((n) => {
+      const canvas = $('zoom' + n);
+      const w = fit(canvas, n * ZOOM);
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, w, w);
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(Draw.render(n, s), 0, 0, w, w);
+      if (grid) {
+        // One device pixel wide, between the pixels, gray so it shows on light and dark designs.
+        const step = w / n;
+        ctx.fillStyle = 'rgba(128, 128, 128, 0.55)';
+        for (let i = 1; i < n; i++) {
+          const p = Math.round(i * step);
+          ctx.fillRect(p, 0, 1, w);
+          ctx.fillRect(0, p, w, 1);
+        }
+      }
+    });
+  }
+
   /* ---------- Start and draw ---------- */
 
   /** Build the previews. `onRedraw` is called when a choice here needs the icons drawn again. */
@@ -263,6 +294,12 @@ const Previews = (() => {
     radioKeys(walls, chooseWall);
     setChecked(Array.from(walls.querySelectorAll('[role="radio"]')), walls.querySelector('[data-wall="' + ui.wall + '"]'));
     applyWall();
+    $('zoomGrid').checked = !!ui.zoomGrid;
+    $('zoomGrid').addEventListener('change', () => {
+      ui.zoomGrid = $('zoomGrid').checked;
+      saveUi();
+      redraw();
+    });
     showTab(ui.tab, false);
   }
 
@@ -272,6 +309,7 @@ const Previews = (() => {
     if (ui.tab === 'sizes') drawSizes(s);
     else if (ui.tab === 'browser') drawBrowser(s);
     else if (ui.tab === 'home') drawHome(s);
+    else if (ui.tab === 'zoom') drawZoom(s);
   }
 
   return { init, draw, siteAddress, activeTab: () => ui.tab, androidShape: () => ui.androidShape };
