@@ -445,6 +445,51 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
 }
 .sizes canvas { transition: transform 0.3s var(--spring), box-shadow 0.3s; transform-origin: bottom left; }
 .sizes li:hover canvas { transform: translateY(-4px) scale(1.06); box-shadow: 0 0 0 1px var(--ring), var(--shadow-lift); }
+/* Undo, redo and reset */
+.toolbar { display: flex; flex-wrap: wrap; gap: 6px; }
+.btn.small { height: 30px; padding: 0 10px; font-size: 12px; }
+.top .note-line:not(:empty) { margin-top: 6px; }
+
+/* My designs */
+.share { margin-top: 12px; }
+.share input { font-family: var(--font-code); font-size: 12px; }
+.save-row { display: flex; align-items: flex-end; gap: 8px; margin-top: 14px; }
+.save-row .grow { flex: 1; min-width: 0; }
+.save-row .btn { height: 38px; flex: none; }
+.status-row { display: flex; align-items: center; gap: 8px; min-height: 8px; }
+.status-row .note-line:not(:empty) { margin: 8px 0 0; }
+.status-row .btn { margin-top: 8px; }
+.designs { list-style: none; margin: 12px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.designs:empty { display: none; }
+.design {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+  min-width: 0;
+}
+.design img { width: 64px; height: 64px; display: block; }
+.design .name { font-weight: 600; font-size: 13px; overflow-wrap: anywhere; }
+.design .date { font-size: 12px; color: var(--muted); }
+.design .actions { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; }
+.design .actions button { height: 28px; padding: 0 8px; font-size: 12px; }
+.file-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
+.text-btn {
+  height: auto;
+  margin-left: auto;
+  padding: 4px 0;
+  background: none;
+  border: 0;
+  color: var(--fg);
+  font-size: 12px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.text-btn:hover { background: none; text-decoration-thickness: 2px; }
+
 /* Android shape previews */
 .sub-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin: 22px 0 4px; }
 .sub-head h3 { margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }

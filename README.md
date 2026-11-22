@@ -20,6 +20,9 @@ A favicon generator built with plain HTML, CSS and JavaScript. Make an icon from
   - `site.webmanifest`
 - **Download one file or everything** as a single `favicons.zip`
 - **Ready-to-paste HTML** for the `<head>` of your site, with paths for the folder your files go in
+- **Your work is kept:** the design is saved in your browser as you work, with undo and redo
+- **My designs:** save several designs, then open, rename, duplicate or delete them, and export or import them as `.json` files
+- **Share links:** the whole design in a link, with a small image included
 - Light and dark theme that follows your system setting
 
 ## Project structure
@@ -40,7 +43,9 @@ A favicon generator built with plain HTML, CSS and JavaScript. Make an icon from
 │   ├── fonts.js        # Bundled font list, character coverage and font loading
 │   ├── draw.js         # Draws the icon on a canvas from the current settings
 │   ├── outputs.js      # Generated files, manifest, HTML snippet, text and path helpers
-│   └── app.js          # Page UI: form, previews, downloads
+│   ├── design.js       # Checking settings, format versions, undo history, share links, export files
+│   ├── store.js        # Saving in the browser (localStorage and IndexedDB)
+│   └── app.js          # Page UI: form, previews, downloads, saving and sharing
 ├── tests/
 │   ├── helpers/        # Loads the scripts in Node, file format readers, browser setup
 │   ├── unit/           # node:test unit tests
@@ -53,7 +58,7 @@ A favicon generator built with plain HTML, CSS and JavaScript. Make an icon from
 └── README.md
 ```
 
-The scripts are plain (non-module) scripts loaded in order, so the page still works when you open `index.html` straight from disk. Each file exposes one object (`Zip`, `Ico`, `Shrink`, `Fonts`, `Draw`, `Outputs`) that the files after it use.
+The scripts are plain (non-module) scripts loaded in order, so the page still works when you open `index.html` straight from disk. Each file exposes one object (`Zip`, `Ico`, `Shrink`, `Svg`, `Fonts`, `Draw`, `Outputs`, `Design`, `Store`) that the files after it use.
 
 The page makes no requests to other sites. The interface uses your system's fonts; the icons use fonts bundled in `assets/fonts/`, so an icon looks the same whichever computer it's made on.
 
@@ -121,6 +126,15 @@ The icon paths inside `site.webmanifest` are relative to the manifest, so they w
 - The ZIP file is built in the browser too, with no library.
 - `apple-touch-icon.png` is always a full square with a solid background, because iOS adds its own rounded corners and does not support transparency. If you choose a transparent background, it uses white.
 - The maskable icons are full squares too, with no rounded corners and no transparency, because Android cuts them to its own shape. Only the middle circle (80% across) is sure to show, so your design is drawn inside it. Use **Maskable padding** to shrink it further. The manifest lists them with `"purpose": "maskable"`, separately from the normal icons, which have `"purpose": "any"`.
+
+## Saving, undo and sharing
+
+- **Autosave:** the design is saved in your browser shortly after each change and comes back when you open the page again. Settings are kept in `localStorage` and uploaded images in IndexedDB. Nothing is sent anywhere. If the browser doesn't allow saving (a private window, for example), the app keeps working and says that designs can't be saved in that window.
+- **Undo and redo:** Ctrl+Z (⌘Z on a Mac) undoes and Ctrl+Shift+Z or Ctrl+Y redoes, or use the buttons above the controls. In a text field these keys undo your typing instead, as usual. Dragging a slider counts as one step, and the last 100 steps are kept. **Reset to default** can be undone too.
+- **My designs:** save the current design under a name. Opening another design asks first if the current one has changes you haven't saved. A deleted design can be brought back with **Undo** for a few seconds. **Export .json** saves the design, with its image, as a file you can back up or import on another device. **Forget all saved data** removes everything this app saved in your browser.
+- **Share links:** **Share link** puts the design in the link itself, after the `#`, so it never reaches a server. The settings are compressed (deflate) and written in base64url after a version prefix (`#d1=`) and a CRC-32 checksum, so a damaged or cut-off link is noticed and changes nothing. An uploaded image is included only if the link stays under 8,000 characters; otherwise the link has the settings only and the page says so. A link made from a page opened from disk points to https://xitas.github.io/favicon-maker/.
+- **Safety:** links and imported files are treated as untrusted. Every setting is checked against its allowed values and anything else falls back to the default; SVG images go through the same cleaning as uploads every time; and nothing from a link or file is ever put into the page as HTML.
+- **Versions:** saved designs, exported files and links carry a format version, and older versions are upgraded when they are opened, so designs made now keep working as the app gains options.
 
 ## Tips
 

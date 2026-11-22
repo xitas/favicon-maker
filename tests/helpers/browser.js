@@ -48,7 +48,7 @@ async function openApp(browser, url, options = {}) {
   });
 
   await page.goto(url);
-  await page.waitForFunction(() => document.querySelectorAll('#files li').length > 0);
+  await page.waitForFunction(() => document.documentElement.dataset.ready === '1');
   await settled(page);
   return { context, page, errors, externalRequests };
 }

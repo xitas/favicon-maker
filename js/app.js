@@ -1,4 +1,5 @@
-/* Page UI: reads the form, keeps previews in sync and wires up downloads. Depends on Svg, Fonts, Draw, Outputs. */
+/* Page UI: reads the form, keeps previews in sync, wires up downloads, and saves, restores, shares and undoes
+   designs. Depends on Svg, Fonts, Draw, Outputs, Design, Store. */
 (function () {
   'use strict';
 
@@ -25,7 +26,12 @@
     dark: $('dark'), darkColors: $('darkColors'), darkFg: $('darkFg'), darkFgLabel: $('darkFgLabel'), darkBg: $('darkBg'),
     heroIcon: $('heroIcon'), tabA: $('tabA'), tabB: $('tabB'), tabTitleA: $('tabTitleA'), tabTitleB: $('tabTitleB'),
     sizes: $('sizes'), files: $('files'), filesNote: $('filesNote'), zip: $('zip'),
-    basePath: $('basePath'), snippet: $('snippet'), copySnippet: $('copySnippet')
+    basePath: $('basePath'), snippet: $('snippet'), copySnippet: $('copySnippet'),
+    undo: $('undo'), redo: $('redo'), reset: $('reset'), appNote: $('appNote'),
+    share: $('share'), shareBox: $('shareBox'), shareUrl: $('shareUrl'), shareNote: $('shareNote'),
+    designName: $('designName'), saveDesign: $('saveDesign'), designsNote: $('designsNote'), undoDelete: $('undoDelete'),
+    designs: $('designs'), designsEmpty: $('designsEmpty'), exportDesign: $('exportDesign'), importDesign: $('importDesign'),
+    importFile: $('importFile'), forgetAll: $('forgetAll')
   };
 
   const RANGES = ['textScale', 'pad', 'radius', 'maskPad'];
@@ -373,7 +379,10 @@
       return;
     }
     if (!isSvg) {
-      showImage(file, file.name, null);
+      file.arrayBuffer().then((buf) => {
+        const rec = { id: Store.newId(), type: file.type, bytes: new Uint8Array(buf), name: file.name };
+        return showImage(file, file.name, null, rec);
+      }).then((ok) => { if (ok) onChange(null); }, () => setNote('This image could not be read. Try a PNG or JPG.', true));
       return;
     }
     // Clean an SVG before using it anywhere: no scripts, event handlers or outside files.
@@ -383,36 +392,542 @@
         clean = Svg.sanitize(text);
       } catch (e) {
         setNote(e.message + '. Try another file.', true);
-        return;
+        return false;
       }
-      showImage(new Blob([clean.standalone], { type: 'image/svg+xml' }), file.name, clean);
-    }, () => setNote('This image could not be read. Try a PNG or JPG.', true));
+      const rec = { id: Store.newId(), type: 'image/svg+xml', bytes: new TextEncoder().encode(clean.standalone), name: file.name };
+      return showImage(new Blob([clean.standalone], { type: 'image/svg+xml' }), file.name, clean, rec);
+    }, () => setNote('This image could not be read. Try a PNG or JPG.', true)).then((ok) => { if (ok) onChange(null); });
   }
 
-  function showImage(blob, name, svg) {
-    const url = URL.createObjectURL(blob);
-    const img = new Image();
-    img.onload = () => {
-      if (imageUrl) URL.revokeObjectURL(imageUrl);
-      image = img;
-      imageUrl = url;
-      imageSvg = svg;
-      el.dropText.textContent = name;
-      setNote((img.naturalWidth || '?') + ' × ' + (img.naturalHeight || '?') + ' px. Choose another image any time.', false);
-      updateDownloads();
-      refresh();
-    };
-    img.onerror = () => {
-      setNote('This image could not be read. Try a PNG or JPG.', true);
-      URL.revokeObjectURL(url);
-    };
-    img.src = url;
+  /** Show an image. Resolves true once it is loaded and in use. */
+  function showImage(blob, name, svg, record) {
+    return new Promise((resolve) => {
+      const url = URL.createObjectURL(blob);
+      const img = new Image();
+      img.onload = () => {
+        if (imageUrl) URL.revokeObjectURL(imageUrl);
+        image = img;
+        imageUrl = url;
+        imageSvg = svg;
+        imageRecord = record || null;
+        el.dropText.textContent = name;
+        setNote((img.naturalWidth || '?') + ' × ' + (img.naturalHeight || '?') + ' px. Choose another image any time.', false);
+        updateDownloads();
+        refresh();
+        resolve(true);
+      };
+      img.onerror = () => {
+        setNote('This image could not be read. Try a PNG or JPG.', true);
+        URL.revokeObjectURL(url);
+        resolve(false);
+      };
+      img.src = url;
+    });
   }
+
+  /* ---------- Design state: autosave, undo, My designs and share links ---------- */
+  const NOTES = {
+    storage: "Designs can't be saved in this browser window.",
+    incomplete: 'This link seems to be incomplete.',
+    shared: 'Opened a shared design.',
+    imageTooBig: 'The image is too big for a link. Export the design to share it with the image.',
+    noSpace: 'There is no room left to save in this browser. Delete or export some designs.'
+  };
+  const PAGES_URL = 'https://xitas.github.io/favicon-maker/';
+  const DESIGN_INPUTS = INPUTS.filter((k) => k !== 'safeZone'); // the safe zone circle is only a preview aid
+  const DEFAULT_DROP_TEXT = el.dropText.textContent;
+  const DEFAULT_FILE_NOTE = el.fileNote.textContent;
+
+  let imageRecord = null;  // { id, type, bytes, name } of the current image, kept with the design
+  const undoHistory = new Design.History(100, 1000);
+  let applying = false;    // true while a saved state is put back, so it isn't recorded again
+  let baselineKey = '';    // the design as last saved, opened or shared, to know about unsaved changes
+  let savedFrom = null;    // id of the saved design the current one came from
+  let linkPending = false; // a share link is in the address bar until the first change
+  let designs = [];
+  let lastDeleted = null;
+  let deletedTimer = 0;
+  let saveTimer = 0;
+  const storedImages = new Set();
+
+  const currentSettings = () => Design.validate(readSettings());
+  const snapshot = () => ({ settings: currentSettings(), image: imageRecord });
+  const sameState = (a, b) => a.image === b.image && Design.same(a.settings, b.settings);
+  const keyOf = (settings, image) => JSON.stringify(Design.changes(settings)) + '|' + (image ? image.id : '');
+  const currentKey = () => keyOf(currentSettings(), imageRecord);
+  const isDirty = () => currentKey() !== baselineKey;
+  const markSaved = () => { baselineKey = currentKey(); };
+  const cleanName = (n) => (typeof n === 'string' ? n.replace(/[\u0000-\u001F\u007F]/g, '').trim().slice(0, 80) : '');
+  const savableImage = () => (imageRecord && Design.validateImage(imageRecord) ? imageRecord : null);
+
+  function setAppNote(text, isError) {
+    setStatus(el.appNote, text, isError);
+  }
+
+  /** Put the form back to a design state: settings and image. Not recorded in the undo history. */
+  async function applyState(state) {
+    applying = true;
+    try {
+      const s = Design.validate(state.settings);
+      el.text.value = s.text;
+      lastText = s.text;
+      lastSelection = [s.text.length, s.text.length];
+      el.font.value = s.font;
+      el.bold.checked = s.bold;
+      el.emoji.value = s.emoji;
+      el.textScale.value = String(s.textScale);
+      el.fg.value = s.fg;
+      el.bg.value = s.bg;
+      el.transparent.checked = s.transparent;
+      el.radius.value = String(s.radius);
+      el.maskPad.value = String(s.maskPad);
+      el.dark.checked = s.dark;
+      el.darkFg.value = s.darkFg;
+      el.darkBg.value = s.darkBg;
+      el.fit.value = s.fit;
+      el.pad.value = String(s.pad);
+      el.appName.value = s.appName;
+      el.basePath.value = s.basePath;
+      enforceTextLimit();
+      setStatus(el.textNote, '', false);
+      await useImage(state.image || null);
+      setMode(s.mode);
+    } finally {
+      applying = false;
+    }
+    refresh();
+    updateHistoryButtons();
+  }
+
+  function clearImage() {
+    if (imageUrl) URL.revokeObjectURL(imageUrl);
+    image = null;
+    imageUrl = null;
+    imageSvg = null;
+    imageRecord = null;
+    el.file.value = '';
+    el.dropText.textContent = DEFAULT_DROP_TEXT;
+    setNote(DEFAULT_FILE_NOTE, false);
+  }
+
+  /** Show a stored, linked or imported image. SVGs are cleaned again every time. */
+  async function useImage(rec) {
+    if (!rec) {
+      clearImage();
+      return true;
+    }
+    if (imageRecord && rec.id === imageRecord.id) return true;
+    let svg = null;
+    let blob;
+    if (rec.type === 'image/svg+xml') {
+      try {
+        svg = Svg.sanitize(new TextDecoder().decode(rec.bytes));
+      } catch (e) {
+        clearImage();
+        setNote(e.message + '. Try another file.', true);
+        return false;
+      }
+      blob = new Blob([svg.standalone], { type: 'image/svg+xml' });
+    } else {
+      blob = new Blob([rec.bytes], { type: rec.type });
+    }
+    return showImage(blob, rec.name || 'Image', svg, rec);
+  }
+
+  /** Record the current design as a step in the undo history, save it, and drop a used share link. */
+  function onChange(group) {
+    if (applying) return;
+    if (undoHistory.record(snapshot(), group, Date.now(), sameState)) {
+      scheduleSave();
+      if (linkPending) clearHash();
+    }
+    updateHistoryButtons();
+  }
+
+  function updateHistoryButtons() {
+    el.undo.disabled = !undoHistory.canUndo();
+    el.redo.disabled = !undoHistory.canRedo();
+  }
+
+  async function moveHistory(step) {
+    const state = step === 'undo' ? undoHistory.undo() : undoHistory.redo();
+    if (!state) return;
+    await applyState(state);
+    scheduleSave();
+    if (linkPending) clearHash();
+  }
+
+  /** Text fields keep the browser's own undo, so the shortcuts only work outside them. */
+  function isTextField(t) {
+    if (!t || !t.tagName) return false;
+    if (t.isContentEditable || t.tagName === 'TEXTAREA') return true;
+    return t.tagName === 'INPUT' && /^(text|search|url|email|password|number|tel)$/i.test(t.type);
+  }
+
+  function onKeyDown(e) {
+    if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+    const k = e.key.toLowerCase();
+    const isUndo = k === 'z' && !e.shiftKey;
+    const isRedo = (k === 'z' && e.shiftKey) || (k === 'y' && e.ctrlKey && !e.shiftKey);
+    if (!isUndo && !isRedo) return;
+    if (isTextField(e.target)) return;
+    e.preventDefault();
+    moveHistory(isUndo ? 'undo' : 'redo');
+  }
+
+  async function resetDesign() {
+    await applyState({ settings: Design.DEFAULTS, image: null });
+    el.designName.value = '';
+    savedFrom = null;
+    onChange(null);
+    setStatus(el.designsNote, 'Reset to the default design. Undo brings yours back.', false);
+  }
+
+  /* Autosave */
+
+  function scheduleSave() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveCurrent, 400);
+  }
+
+  async function storeImage(rec) {
+    if (storedImages.has(rec.id)) return;
+    await Store.putImage(rec.id, rec);
+    storedImages.add(rec.id);
+  }
+
+  async function saveCurrent() {
+    clearTimeout(saveTimer);
+    saveTimer = 0;
+    const rec = savableImage();
+    if (rec) await storeImage(rec);
+    const ok = Store.setJson('current', {
+      format: Design.FORMAT, settings: currentSettings(), imageId: rec ? rec.id : null, baseline: baselineKey, from: savedFrom
+    });
+    if (!ok) setAppNote(NOTES.noSpace, true);
+  }
+
+  async function loadStoredImage(id) {
+    const raw = await Store.getImage(id);
+    const rec = Design.validateImage(raw);
+    if (!rec) return null;
+    rec.id = id;
+    storedImages.add(id);
+    return rec;
+  }
+
+  /* My designs */
+
+  function cleanEntry(d) {
+    if (!d || typeof d !== 'object' || typeof d.id !== 'string' || !d.id) return null;
+    let settings;
+    try {
+      settings = Design.migrate({ format: d.format, settings: d.settings }).settings;
+    } catch (e) {
+      return null;
+    }
+    const time = (t) => (Number.isFinite(t) ? t : Date.now());
+    return {
+      id: d.id.slice(0, 64),
+      name: cleanName(d.name) || 'Untitled design',
+      created: time(d.created),
+      updated: time(d.updated),
+      format: Design.FORMAT,
+      settings,
+      imageId: typeof d.imageId === 'string' ? d.imageId.slice(0, 64) : null,
+      thumb: typeof d.thumb === 'string' && /^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(d.thumb) ? d.thumb : ''
+    };
+  }
+
+  function readDesignList() {
+    const raw = Store.getJson('designs');
+    return Array.isArray(raw) ? raw.map(cleanEntry).filter(Boolean) : [];
+  }
+
+  function writeDesignList() {
+    if (!Store.setJson('designs', designs)) setStatus(el.designsNote, NOTES.noSpace, true);
+  }
+
+  async function makeThumb() {
+    try {
+      const s = await Fonts.prepare(readSettings());
+      return Draw.render(64, s).toDataURL('image/png');
+    } catch (e) {
+      return '';
+    }
+  }
+
+  function formatDate(t) {
+    try {
+      return new Date(t).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+    } catch (e) {
+      return new Date(t).toISOString().slice(0, 16).replace('T', ' ');
+    }
+  }
+
+  function renderDesigns() {
+    el.designs.replaceChildren();
+    designs.forEach((d) => {
+      const li = document.createElement('li');
+      li.className = 'design';
+      li.dataset.id = d.id;
+      const img = document.createElement('img');
+      img.alt = '';
+      img.width = img.height = 64;
+      if (d.thumb) img.src = d.thumb;
+      const name = document.createElement('div');
+      name.className = 'name';
+      name.textContent = d.name;
+      const date = document.createElement('div');
+      date.className = 'date';
+      date.textContent = formatDate(d.updated);
+      const actions = document.createElement('div');
+      actions.className = 'actions';
+      [['Open', () => openDesign(d)], ['Rename', () => renameDesign(d)], ['Duplicate', () => duplicateDesign(d)], ['Delete', () => deleteDesign(d)]]
+        .forEach(([label, fn]) => {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.textContent = label;
+          b.setAttribute('aria-label', label + ' ' + d.name);
+          b.addEventListener('click', fn);
+          actions.appendChild(b);
+        });
+      li.append(img, name, date, actions);
+      el.designs.appendChild(li);
+    });
+    el.designsEmpty.hidden = designs.length > 0;
+  }
+
+  async function saveDesign() {
+    const name = cleanName(el.designName.value) || 'Design ' + (designs.length + 1);
+    const rec = savableImage();
+    if (rec) await storeImage(rec);
+    const thumb = await makeThumb();
+    const now = Date.now();
+    const fields = { settings: currentSettings(), imageId: rec ? rec.id : null, thumb, updated: now, format: Design.FORMAT };
+    const existing = savedFrom ? designs.find((d) => d.id === savedFrom && d.name === name) : null;
+    if (existing) {
+      Object.assign(existing, fields);
+    } else {
+      const d = Object.assign({ id: Store.newId(), name, created: now }, fields);
+      designs.unshift(d);
+      savedFrom = d.id;
+    }
+    writeDesignList();
+    el.designName.value = name;
+    markSaved();
+    await saveCurrent();
+    renderDesigns();
+    setStatus(el.designsNote, (existing ? 'Updated “' : 'Saved “') + name + '”.', false);
+  }
+
+  /** Ask before replacing a design that has unsaved changes. */
+  function okToReplace(what) {
+    if (!isDirty()) return true;
+    return window.confirm(what + ' It replaces the current design, which has changes that aren’t saved in My designs.');
+  }
+
+  async function openDesign(d) {
+    if (keyOf(d.settings, d.imageId ? { id: d.imageId } : null) !== currentKey() && !okToReplace('Open “' + d.name + '”?')) return;
+    const img = d.imageId ? await loadStoredImage(d.imageId) : null;
+    await applyState({ settings: d.settings, image: img });
+    savedFrom = d.id;
+    el.designName.value = d.name;
+    markSaved();
+    onChange(null);
+    await saveCurrent();
+    setStatus(el.designsNote, d.imageId && !img ? 'Opened “' + d.name + '”, but its image is no longer saved in this browser.' : 'Opened “' + d.name + '”.', !!(d.imageId && !img));
+  }
+
+  function renameDesign(d) {
+    const answer = window.prompt('New name for “' + d.name + '”', d.name);
+    if (answer === null) return;
+    const name = cleanName(answer);
+    if (!name) return;
+    d.name = name;
+    d.updated = Date.now();
+    if (savedFrom === d.id) el.designName.value = name;
+    writeDesignList();
+    renderDesigns();
+    setStatus(el.designsNote, 'Renamed to “' + name + '”.', false);
+  }
+
+  function duplicateDesign(d) {
+    const now = Date.now();
+    const copy = Object.assign({}, d, { id: Store.newId(), name: (d.name + ' copy').slice(0, 80), created: now, updated: now });
+    designs.splice(designs.indexOf(d), 0, copy);
+    writeDesignList();
+    renderDesigns();
+    setStatus(el.designsNote, 'Made a copy of “' + d.name + '”.', false);
+  }
+
+  function deleteDesign(d) {
+    const index = designs.indexOf(d);
+    if (index === -1) return;
+    designs.splice(index, 1);
+    writeDesignList();
+    renderDesigns();
+    lastDeleted = { design: d, index };
+    setStatus(el.designsNote, 'Deleted “' + d.name + '”.', false);
+    el.undoDelete.hidden = false;
+    clearTimeout(deletedTimer);
+    deletedTimer = setTimeout(() => { el.undoDelete.hidden = true; lastDeleted = null; }, 10000);
+  }
+
+  function undoDelete() {
+    if (!lastDeleted) return;
+    designs.splice(Math.min(lastDeleted.index, designs.length), 0, lastDeleted.design);
+    writeDesignList();
+    renderDesigns();
+    setStatus(el.designsNote, 'Restored “' + lastDeleted.design.name + '”.', false);
+    lastDeleted = null;
+    el.undoDelete.hidden = true;
+    clearTimeout(deletedTimer);
+  }
+
+  function exportDesign() {
+    const name = cleanName(el.designName.value) || 'Favicon design';
+    const text = Design.toExport(name, currentSettings(), savableImage());
+    const file = (name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'favicon-design') + '.json';
+    saveBlob(new Blob([text], { type: 'application/json' }), file);
+    setStatus(el.designsNote, 'Exported “' + name + '” as ' + file + '.', false);
+  }
+
+  async function importDesign(file) {
+    if (!file) return;
+    let d;
+    try {
+      d = Design.fromExport(await file.text());
+      if (d.image && d.image.type === 'image/svg+xml') Svg.sanitize(new TextDecoder().decode(d.image.bytes));
+    } catch (e) {
+      setStatus(el.designsNote, (e.message || "This file isn't a favicon design") + '.', true);
+      return;
+    } finally {
+      el.importFile.value = '';
+    }
+    if (!okToReplace('Open the imported design “' + d.name + '”?')) return;
+    const img = d.image ? Object.assign({}, d.image, { id: Store.newId() }) : null;
+    await applyState({ settings: d.settings, image: img });
+    savedFrom = null;
+    el.designName.value = d.name;
+    onChange(null);
+    await saveDesign();
+    setStatus(el.designsNote, 'Imported “' + d.name + '”.', false);
+  }
+
+  async function forgetAll() {
+    const ok = window.confirm('Forget all saved data? This removes every saved design and the autosaved design from this browser. It can’t be undone.');
+    if (!ok) return;
+    clearTimeout(saveTimer);
+    await Store.forgetAll();
+    designs = [];
+    storedImages.clear();
+    savedFrom = null;
+    lastDeleted = null;
+    el.undoDelete.hidden = true;
+    renderDesigns();
+    setStatus(el.designsNote, 'All saved data was removed from this browser.', false);
+  }
+
+  /* Share links */
+
+  function clearHash() {
+    linkPending = false;
+    try {
+      window.history.replaceState(null, '', location.pathname + location.search);
+    } catch (e) { /* the hash stays; nothing else to do */ }
+  }
+
+  async function shareLink() {
+    const base = location.protocol === 'file:' ? PAGES_URL : location.href.split('#')[0];
+    let result;
+    try {
+      result = await Design.shareLink(base, currentSettings(), savableImage());
+    } catch (e) {
+      setStatus(el.shareNote, 'Could not make a link: ' + e.message + '.', true);
+      return;
+    }
+    el.shareBox.hidden = false;
+    el.shareUrl.value = result.url;
+    let copied = false;
+    try {
+      await navigator.clipboard.writeText(result.url);
+      copied = true;
+    } catch (e) {
+      el.shareUrl.focus();
+      el.shareUrl.select();
+    }
+    const parts = [copied ? 'Link copied.' : 'Copy the link above.'];
+    if (result.imageLeftOut) parts.push(NOTES.imageTooBig);
+    setStatus(el.shareNote, parts.join(' '), false);
+  }
+
+  /** Open a design from a share link in the address bar. A bad link changes nothing. */
+  async function openFromHash() {
+    const hash = location.hash;
+    if (!Design.isShareHash(hash)) return;
+    let d;
+    try {
+      d = await Design.decodeHash(hash);
+    } catch (e) {
+      setAppNote(/newer version/.test(e.message) ? e.message + '.' : NOTES.incomplete, true);
+      return;
+    }
+    let img = null;
+    if (d.image) {
+      img = Object.assign({}, d.image, { id: Store.newId(), name: 'Shared image' });
+      if (img.type === 'image/svg+xml') {
+        try { Svg.sanitize(new TextDecoder().decode(img.bytes)); } catch (e) { setAppNote(NOTES.incomplete, true); return; }
+      }
+    }
+    if (keyOf(d.settings, null) !== currentKey() && !okToReplace('Open the shared design?')) {
+      clearHash();
+      return;
+    }
+    await applyState({ settings: d.settings, image: img });
+    savedFrom = null;
+    el.designName.value = '';
+    onChange(null);
+    linkPending = true;
+    setAppNote(NOTES.shared, false);
+  }
+
+  /** Restore the autosaved design and saved designs, then open a share link if there is one. */
+  async function restore() {
+    const persistent = await Store.init();
+    if (!persistent) setAppNote(NOTES.storage, false);
+    designs = readDesignList();
+    const cur = Store.getJson('current');
+    let restored = false;
+    if (cur && typeof cur === 'object') {
+      try {
+        const d = Design.migrate({ format: cur.format, settings: cur.settings });
+        const img = typeof cur.imageId === 'string' ? await loadStoredImage(cur.imageId) : null;
+        await applyState({ settings: d.settings, image: img });
+        baselineKey = typeof cur.baseline === 'string' ? cur.baseline : '';
+        savedFrom = typeof cur.from === 'string' ? cur.from : null;
+        const from = designs.find((x) => x.id === savedFrom);
+        if (from) el.designName.value = from.name;
+        restored = true;
+      } catch (e) {
+        restored = false;
+      }
+    }
+    if (!restored) markSaved();
+    undoHistory.reset(snapshot());
+    updateHistoryButtons();
+    renderDesigns();
+    const keep = new Set(designs.map((d) => d.imageId).filter(Boolean));
+    if (imageRecord) keep.add(imageRecord.id);
+    await Store.collect(keep);
+    await openFromHash();
+  }
+
 
   /* ---------- Events ---------- */
   function bindEvents() {
-    el.modeText.addEventListener('click', () => setMode('text'));
-    el.modeImage.addEventListener('click', () => setMode('image'));
+    el.modeText.addEventListener('click', () => { setMode('text'); onChange(null); });
+    el.modeImage.addEventListener('click', () => { setMode('image'); onChange(null); });
 
     // Remember the text and caret before each edit, so an edit past the limit can be undone exactly.
     // While an input method is composing, keep the state from before the composition started.
@@ -429,6 +944,29 @@
       el[k].addEventListener('input', refresh);
       el[k].addEventListener('change', refresh);
     });
+    // Each change is a step in the undo history; quick changes to one control (a slider drag) are one step.
+    DESIGN_INPUTS.forEach((k) => {
+      el[k].addEventListener('input', () => onChange(k));
+      el[k].addEventListener('change', () => onChange(k));
+    });
+
+    el.undo.addEventListener('click', () => moveHistory('undo'));
+    el.redo.addEventListener('click', () => moveHistory('redo'));
+    el.reset.addEventListener('click', resetDesign);
+    document.addEventListener('keydown', onKeyDown);
+    el.saveDesign.addEventListener('click', saveDesign);
+    el.designName.addEventListener('keydown', (e) => { if (e.key === 'Enter') saveDesign(); });
+    el.undoDelete.addEventListener('click', undoDelete);
+    el.exportDesign.addEventListener('click', exportDesign);
+    el.importDesign.addEventListener('click', () => el.importFile.click());
+    el.importFile.addEventListener('change', (e) => importDesign(e.target.files && e.target.files[0]));
+    el.forgetAll.addEventListener('click', forgetAll);
+    el.share.addEventListener('click', shareLink);
+    el.shareUrl.addEventListener('focus', () => el.shareUrl.select());
+    window.addEventListener('hashchange', openFromHash);
+    // Save at once when the page is hidden or closed, instead of waiting for the delay.
+    window.addEventListener('pagehide', () => { if (saveTimer) saveCurrent(); });
+    document.addEventListener('visibilitychange', () => { if (document.hidden && saveTimer) saveCurrent(); });
 
     el.file.addEventListener('change', (e) => { loadFile(e.target.files && e.target.files[0]); });
     ['dragenter', 'dragover'].forEach((t) => el.drop.addEventListener(t, (e) => { e.preventDefault(); el.drop.classList.add('over'); }));
@@ -481,4 +1019,8 @@
   el.snippet.querySelector('code').textContent = Outputs.snippet(readSettings());
   refresh();
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(refresh);
+  // Bring back the saved design. The page says it is ready (for tests and scripts) once that is done.
+  restore().catch(() => setAppNote(NOTES.storage, false)).then(() => {
+    document.documentElement.dataset.ready = '1';
+  });
 })();

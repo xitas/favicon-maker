@@ -14,11 +14,17 @@
       <div>
         <h1>Favicon Generator</h1>
         <p>Design an icon from text, an emoji or an image, then download everything a website needs. It all happens in your browser, so your image never leaves your device.</p>
+        <p id="appNote" class="hint note-line" role="status"></p>
       </div>
     </header>
 
     <div class="layout">
       <section class="panel controls" aria-label="Design">
+        <div class="toolbar" role="group" aria-label="Design history">
+          <button id="undo" class="btn ghost small" type="button" aria-keyshortcuts="Control+Z Meta+Z" disabled>Undo</button>
+          <button id="redo" class="btn ghost small" type="button" aria-keyshortcuts="Control+Shift+Z Meta+Shift+Z Control+Y" disabled>Redo</button>
+          <button id="reset" class="btn ghost small" type="button">Reset to default</button>
+        </div>
         <div class="seg" role="group" aria-label="Icon source">
           <button id="modeText" type="button" aria-pressed="true">Text or emoji</button>
           <button id="modeImage" type="button" aria-pressed="false">Image</button>
@@ -145,6 +151,38 @@
           <p class="hint snippet-hint">Put the files in that folder, then paste this inside the <code>&lt;head&gt;</code> of every page.</p>
           <pre id="snippet" tabindex="0"><code></code></pre>
         </section>
+
+        <section class="panel" aria-labelledby="designsTitle">
+          <div class="panel-head">
+            <h2 id="designsTitle">My designs</h2>
+            <button id="share" class="btn ghost" type="button" aria-describedby="shareHint">Share link</button>
+          </div>
+          <p id="shareHint" class="hint">Your design is saved in this browser as you work. Save it here to keep several, or share it as a link.</p>
+          <div id="shareBox" class="share" hidden>
+            <label class="col" for="shareUrl">Link to this design
+              <input id="shareUrl" type="text" readonly spellcheck="false">
+            </label>
+          </div>
+          <p id="shareNote" class="hint note-line" role="status"></p>
+          <div class="save-row">
+            <label class="col grow" for="designName">Name
+              <input id="designName" type="text" maxlength="80" autocomplete="off" placeholder="My favicon">
+            </label>
+            <button id="saveDesign" class="btn" type="button">Save design</button>
+          </div>
+          <div class="status-row">
+            <p id="designsNote" class="hint note-line" role="status"></p>
+            <button id="undoDelete" class="btn ghost small" type="button" hidden>Undo</button>
+          </div>
+          <ul id="designs" class="designs" aria-labelledby="designsTitle"></ul>
+          <p id="designsEmpty" class="hint">No saved designs yet.</p>
+          <div class="file-actions">
+            <button id="exportDesign" class="btn ghost small" type="button">Export .json</button>
+            <button id="importDesign" class="btn ghost small" type="button">Import .json</button>
+            <input id="importFile" type="file" accept=".json,application/json" hidden>
+            <button id="forgetAll" class="text-btn" type="button">Forget all saved data</button>
+          </div>
+        </section>
       </div>
     </div>
   </main>
@@ -157,6 +195,8 @@
   <script src="js/fonts.js" defer></script>
   <script src="js/draw.js" defer></script>
   <script src="js/outputs.js" defer></script>
+  <script src="js/design.js" defer></script>
+  <script src="js/store.js" defer></script>
   <script src="js/app.js" defer></script>
 </body>
 </html>

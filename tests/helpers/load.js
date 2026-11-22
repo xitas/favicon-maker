@@ -2,7 +2,7 @@
 /*
  * Loads the browser scripts from js/ into a node:vm context, in the same order
  * as index.html, without changing them. Each script declares one top-level
- * `const` (Zip, Ico, Shrink, Svg, Fonts, Draw, Outputs). Top-level `const` bindings are shared by
+ * `const` (Zip, Ico, Shrink, Svg, Fonts, Draw, Outputs, Design, Store). Top-level `const` bindings are shared by
  * every script run in the same context, just like plain <script> tags on a page.
  */
 const fs = require('node:fs');
@@ -12,16 +12,21 @@ const vm = require('node:vm');
 const ROOT = path.resolve(__dirname, '..', '..');
 
 /** Same order as the <script> tags in index.html (app.js needs a real page, so it is left out). */
-const SCRIPTS = ['js/lib/zip.js', 'js/lib/ico.js', 'js/lib/shrink.js', 'js/lib/svg.js', 'js/fonts.js', 'js/draw.js', 'js/outputs.js'];
+const SCRIPTS = ['js/lib/zip.js', 'js/lib/ico.js', 'js/lib/shrink.js', 'js/lib/svg.js', 'js/fonts.js', 'js/draw.js', 'js/outputs.js', 'js/design.js', 'js/store.js'];
 
 /**
  * @param {object} [options]
  * @param {Date} [options.now]  freeze `new Date()` inside the scripts at this moment
+ * @param {boolean} [options.withoutCompression]  no CompressionStream, like an older browser
  * @param {boolean} [options.withoutSegmenter]  remove Intl.Segmenter, like a browser that doesn't have it
  * @returns {{ Zip: any, Ico: any, Shrink: any, Svg: any, Fonts: any, Draw: any, Outputs: any, context: object }}
  */
 function loadScripts(options = {}) {
-  const context = vm.createContext({ Blob, TextEncoder, TextDecoder, URL, console });
+  const context = vm.createContext({
+    Blob, TextEncoder, TextDecoder, URL, console, btoa, atob, Response,
+    CompressionStream: options.withoutCompression ? undefined : CompressionStream,
+    DecompressionStream: options.withoutCompression ? undefined : DecompressionStream
+  });
 
   if (options.withoutSegmenter) {
     vm.runInContext('delete Intl.Segmenter;', context);
@@ -47,7 +52,7 @@ function loadScripts(options = {}) {
     vm.runInContext(fs.readFileSync(file, 'utf8'), context, { filename: file });
   }
 
-  const exported = vm.runInContext('({ Zip, Ico, Shrink, Svg, Fonts, Draw, Outputs })', context);
+  const exported = vm.runInContext('({ Zip, Ico, Shrink, Svg, Fonts, Draw, Outputs, Design, Store })', context);
   return { ...exported, context };
 }
 
