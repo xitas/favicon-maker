@@ -37,11 +37,26 @@ function get(url) {
 /** A number with at most 3 decimals, as short as possible. */
 const n = (v) => String(Math.round(Number(v) * 1000) / 1000);
 
+const NUM = '([-+]?(?:\\d*\\.\\d+|\\d+\\.?)(?:[eE][-+]?\\d+)?)';
+const LEADING_MOVE = new RegExp('^\\s*m\\s*' + NUM + '[\\s,]*' + NUM);
+
+/**
+ * Path data that still means the same once joined after other paths. A path may start with a relative
+ * "m", which counts as absolute only at the start of a path: joined, it would move from wherever the last
+ * path ended. So it becomes "M x y", and the pairs that followed it (relative line-tos) get an "l".
+ */
+function absoluteStart(d) {
+  const m = LEADING_MOVE.exec(d);
+  if (!m) return d;
+  const rest = d.slice(m[0].length).replace(/^[\s,]+/, '');
+  return 'M' + m[1] + ' ' + m[2] + (/^[-+.\d]/.test(rest) ? 'l' : '') + rest;
+}
+
 /** One shape element as SVG path data. */
 function nodeToPath(tag, a) {
   switch (tag) {
     case 'path':
-      return a.d;
+      return absoluteStart(a.d);
     case 'circle': {
       const r = Number(a.r);
       return `M${n(a.cx - r)} ${n(a.cy)}a${n(r)} ${n(r)} 0 1 0 ${n(2 * r)} 0a${n(r)} ${n(r)} 0 1 0 ${n(-2 * r)} 0`;

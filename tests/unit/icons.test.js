@@ -68,15 +68,62 @@ test('the bundled set loads, has the license next to it, and every icon is a val
   assert.equal(Icons.get('constructor'), null);
 });
 
+/** Every point a path's commands end on, relative ones resolved: [[x, y], ...]. */
+function pathPoints(d) {
+  const ARGS = { m: 2, l: 2, h: 1, v: 1, c: 6, s: 4, q: 4, t: 2, a: 7, z: 0 };
+  const NUMBER = /^[\s,]*([-+]?(?:\d*\.\d+|\d+\.?)(?:e[-+]?\d+)?)/i;
+  const FLAG = /^[\s,]*([01])/; // arc flags are one digit, and may touch the next number ("017.07")
+  const points = [];
+  let x = 0;
+  let y = 0;
+  let sx = 0;
+  let sy = 0;
+  let cmd = '';
+  let rest = d;
+  while ((rest = rest.replace(/^[\s,]+/, ''))) {
+    if (/^[a-z]/i.test(rest)) {
+      cmd = rest[0];
+      rest = rest.slice(1);
+    }
+    const lower = cmd.toLowerCase();
+    const rel = cmd === lower;
+    if (lower === 'z') { x = sx; y = sy; points.push([x, y]); continue; }
+    const v = [];
+    for (let k = 0; k < ARGS[lower]; k++) {
+      const m = (lower === 'a' && (k === 3 || k === 4) ? FLAG : NUMBER).exec(rest);
+      assert.ok(m, `bad path data near "${rest.slice(0, 12)}"`);
+      v.push(Number(m[1]));
+      rest = rest.slice(m[0].length);
+    }
+    if (lower === 'h') x = rel ? x + v[0] : v[0];
+    else if (lower === 'v') y = rel ? y + v[0] : v[0];
+    else {
+      const ex = v[v.length - 2];
+      const ey = v[v.length - 1];
+      x = rel ? x + ex : ex;
+      y = rel ? y + ey : ey;
+    }
+    if (lower === 'm') {
+      sx = x; sy = y;
+      cmd = rel ? 'l' : 'L'; // pairs after a move are line-tos
+    }
+    points.push([x, y]);
+  }
+  return points;
+}
+
+test('pathPoints follows relative commands, and joined paths', () => {
+  assert.deepEqual(pathPoints('M12 19h8M4 17l6-6-6-6'), [[12, 19], [20, 19], [4, 17], [10, 11], [4, 5]]);
+  // Joined after another path, a relative move starts from where that one ended.
+  assert.deepEqual(pathPoints('M12 19h8m4 17 6-6-6-6').slice(2), [[24, 36], [30, 30], [24, 24]]);
+});
+
 test('every icon stays inside its 24 × 24 grid', () => {
-  // Absolute coordinates of M, L, H, V and C/Q end points only (relative ones are skipped): a rough check
-  // that nothing in the set is far outside the grid the layout assumes.
+  // Every end point, relative ones included: a part of an icon placed from the wrong start point lands
+  // outside the grid (824 icons did, when joined paths kept a leading relative move).
   for (const name of Icons.search('')) {
-    const d = Icons.get(name);
-    for (const m of d.matchAll(/([MLC])\s*(-?[\d.]+)[\s,]*(-?[\d.]+)/g)) {
-      const x = Number(m[2]);
-      const y = Number(m[3]);
-      assert.ok(x >= -1 && x <= 25 && y >= -1 && y <= 25, `${name}: ${m[0]}`);
+    for (const [x, y] of pathPoints(Icons.get(name))) {
+      assert.ok(x >= -1 && x <= 25 && y >= -1 && y <= 25, `${name}: a point at ${x}, ${y}`);
     }
   }
 });
