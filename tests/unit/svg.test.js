@@ -183,18 +183,16 @@ test('icon: colors that are not #rrggbb never reach the style sheet', () => {
   assert.match(text, /\.fm-s0\{stop-color:#ffffff\}/);
 });
 
-test('icon: an uploaded SVG is nested with contain or cover', () => {
+test('icon: an uploaded SVG is placed in its rectangle and clipped to its box', () => {
   const clean = sanitize('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 10" fill="red"><rect width="20" height="10"/></svg>');
-  for (const [fit, par] of [['contain', 'xMidYMid meet'], ['cover', 'xMidYMid slice']]) {
-    const doc = parseXml(Svg.icon({ ...BASE, path: undefined, image: { svg: clean, x: 51.2, y: 51.2, size: 409.6, fit } }));
-    const nested = doc.documentElement.getElementsByTagName('svg')[0];
-    assert.equal(nested.getAttribute('viewBox'), '0 0 20 10');
-    assert.equal(nested.getAttribute('preserveAspectRatio'), par);
-    assert.equal(nested.getAttribute('x'), '51.2');
-    assert.equal(nested.getAttribute('width'), '409.6');
-    assert.equal(nested.getAttribute('fill'), 'red', 'root attributes of the upload are kept');
-    assert.equal(nested.getElementsByTagName('rect').length, 1);
-  }
+  const doc = parseXml(Svg.icon({ ...BASE, path: undefined, image: { svg: clean, clip: { x: 51.2, y: 51.2, size: 409.6 }, x: -100, y: 51.2, w: 819.2, h: 409.6 } }));
+  const nested = doc.documentElement.getElementsByTagName('svg')[0];
+  assert.deepEqual(['x', 'y', 'width', 'height', 'viewBox'].map((a) => nested.getAttribute(a)), ['-100', '51.2', '819.2', '409.6', '0 0 20 10']);
+  assert.equal(nested.getAttribute('fill'), 'red', 'root attributes of the upload are kept');
+  assert.equal(nested.getElementsByTagName('rect').length, 1);
+  assert.equal(nested.parentNode.getAttribute('clip-path'), 'url(#fm-0img)');
+  const clip = Array.from(doc.getElementsByTagName('clipPath')).find((c) => c.getAttribute('id') === 'fm-0img').getElementsByTagName('rect')[0];
+  assert.deepEqual(['x', 'y', 'width', 'height'].map((a) => clip.getAttribute(a)), ['51.2', '51.2', '409.6', '409.6']);
 });
 
 /* ---------- Sanitizer ---------- */

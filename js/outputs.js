@@ -201,7 +201,11 @@ const Outputs = (() => {
     } else if (s.mode === 'image') {
       const l = Draw.imageLayout(SVG_SIZE, s, s.imageSvg.viewBox[2], s.imageSvg.viewBox[3]);
       const shift = Draw.offsetPx(SVG_SIZE, s);
-      o.image = { svg: s.imageSvg, x: l.clip.x + shift.x, y: l.clip.y + shift.y, size: l.clip.size, fit: s.fit };
+      o.image = {
+        svg: s.imageSvg,
+        clip: { x: l.clip.x + shift.x, y: l.clip.y + shift.y, size: l.clip.size },
+        x: l.x + shift.x, y: l.y + shift.y, w: l.w, h: l.h
+      };
     } else {
       o.path = await textPath(s);
     }

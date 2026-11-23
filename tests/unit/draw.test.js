@@ -65,6 +65,13 @@ test('imageLayout: contain and cover, centered in the padded box', () => {
   assert.deepEqual(JSON.parse(JSON.stringify(cover)), { clip: { x: 0, y: 0, size: 100 }, x: -50, y: 0, w: 200, h: 100 });
 });
 
+test('imageLayout: the crop zooms and moves the image inside the box', () => {
+  const l = Draw.imageLayout(100, { pad: 10, fit: 'contain', cropZoom: 200, cropX: 10, cropY: -5 }, 100, 100);
+  assert.deepEqual(JSON.parse(JSON.stringify(l.clip)), { x: 10, y: 10, size: 80 });
+  assert.deepEqual([l.w, l.h], [160, 160]);
+  assert.deepEqual([l.x + l.w / 2, l.y + l.h / 2], [58, 46], 'center moved 10% of the box right and 5% up');
+});
+
 test('borderPx: grows with the icon, at least 1 px, never more than a twelfth', () => {
   assert.equal(Draw.borderPx(512, 4), 20.48);
   assert.equal(Draw.borderPx(16, 4), 1, '0.64 px becomes 1 px');

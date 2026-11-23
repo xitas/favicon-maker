@@ -242,8 +242,9 @@ for (const target of targets()) {
         for (const bad of [/<script/i, /onload|onclick/i, /evil\.test/, /foreignObject/i, /javascript:/i, /@import/]) {
           assert.doesNotMatch(svg, bad);
         }
-        assert.match(svg, /preserveAspectRatio="xMidYMid meet"/);
-        assert.match(svg, /<svg x="51\.2" y="51\.2" width="409\.6" height="409\.6" viewBox="0 0 100 50"/);
+        // The image keeps its proportions in its rectangle (contain: 409.6 × 204.8, centered), clipped to the box.
+        assert.match(svg, /<svg x="51\.2" y="153\.6" width="409\.6" height="204\.8" viewBox="0 0 100 50"/);
+        assert.match(svg, /<clipPath id="fm-0img"><rect x="51\.2" y="51\.2" width="409\.6" height="409\.6"\/>/);
         assert.equal(await page.evaluate(() => window.__pwned), undefined, 'nothing ran');
         assert.deepEqual(externalRequests, [], 'nothing was loaded from outside');
 

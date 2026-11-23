@@ -137,7 +137,8 @@ const Svg = (() => {
    * @param {object|null} o.dark         { background, background2, foreground } colors for dark mode, or null
    * @param {object|null} o.border       { width, color } in view box units, or null
    * @param {string} [o.path]            text outlines, as one path
-   * @param {object} [o.image]           { svg: sanitize() result, x, y, size, fit } for an uploaded SVG
+   * @param {object} [o.image]           { svg: sanitize() result, clip: { x, y, size }, x, y, w, h } for an uploaded
+   *                                     SVG: drawn in the rectangle (x, y, w, h), clipped to the square box
    * @param {object} [o.icon]            { d, x, y, k, stroke } for a library icon: a path on its own grid,
    *                                     placed at (x, y), scaled by k, stroked with round ends
    */
@@ -202,9 +203,11 @@ const Svg = (() => {
     if (o.image) {
       const im = o.image;
       const vb = im.svg.viewBox.map(num).join(' ');
-      const fit = im.fit === 'cover' ? 'xMidYMid slice' : 'xMidYMid meet';
-      parts.push('<svg x="' + num(im.x) + '" y="' + num(im.y) + '" width="' + num(im.size) + '" height="' + num(im.size) +
-        '" viewBox="' + vb + '" preserveAspectRatio="' + fit + '" overflow="hidden"' + im.svg.rootAttrs + '>' + im.svg.inner + '</svg>');
+      const c = im.clip;
+      // The image keeps its own proportions in its rectangle, and only its part inside the box shows.
+      parts.push('<clipPath id="fm-0img"><rect x="' + num(c.x) + '" y="' + num(c.y) + '" width="' + num(c.size) + '" height="' + num(c.size) + '"/></clipPath>');
+      parts.push('<g clip-path="url(#fm-0img)"><svg x="' + num(im.x) + '" y="' + num(im.y) + '" width="' + num(im.w) + '" height="' + num(im.h) +
+        '" viewBox="' + vb + '" preserveAspectRatio="xMidYMid meet" overflow="hidden"' + im.svg.rootAttrs + '>' + im.svg.inner + '</svg></g>');
     }
     // The border follows the shape inside its edge: a stroke twice as wide, half of it clipped away.
     if (o.border) {

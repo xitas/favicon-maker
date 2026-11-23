@@ -121,6 +121,28 @@
               <span class="row">Padding <output id="padOut" for="pad">0%</output></span>
               <input type="range" id="pad" min="0" max="30" value="0">
             </label>
+            <div id="cropBox" class="crop-box" hidden>
+              <div id="crop" class="crop" tabindex="0" role="group" aria-roledescription="crop area" aria-label="Crop the image" aria-describedby="cropHelp">
+                <canvas id="cropCanvas" aria-hidden="true"></canvas>
+              </div>
+              <p id="cropHelp" class="hint">Drag the image, or use the arrow keys, to move it inside the square. Zoom with the slider, the mouse wheel, a pinch, or the + and − keys. 0 resets.</p>
+              <p id="cropStatus" class="sr-only" role="status"></p>
+              <label class="col" for="cropZoom">
+                <span class="row">Zoom <output id="cropZoomOut" for="cropZoom">100%</output></span>
+                <input type="range" id="cropZoom" min="100" max="800" value="100">
+              </label>
+              <input type="hidden" id="cropX" value="0">
+              <input type="hidden" id="cropY" value="0">
+              <div class="image-actions">
+                <button id="trimImage" class="btn ghost small" type="button" aria-describedby="trimNote">Trim empty edges</button>
+                <button id="resetCrop" class="btn ghost small" type="button">Reset crop</button>
+              </div>
+              <p id="trimNote" class="hint note-line" role="status"></p>
+              <div id="suggest" class="suggest" hidden>
+                <p id="suggestTitle" class="hint">Background colors from your image</p>
+                <div id="swatches" class="swatches" role="group" aria-labelledby="suggestTitle"></div>
+              </div>
+            </div>
           </div>
         </details>
 

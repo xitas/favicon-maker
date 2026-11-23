@@ -312,5 +312,5 @@ const Previews = (() => {
     else if (ui.tab === 'zoom') drawZoom(s);
   }
 
-  return { init, draw, siteAddress, activeTab: () => ui.tab, androidShape: () => ui.androidShape };
+  return { init, draw, siteAddress, show: (name) => showTab(name, false), activeTab: () => ui.tab, androidShape: () => ui.androidShape };
 })();

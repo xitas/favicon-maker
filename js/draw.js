@@ -1,4 +1,4 @@
-/* Icon drawing on <canvas>. Pure: everything it needs comes in through `settings`. Depends on Svg, Fonts, Icons, Shrink.
+/* Icon drawing on <canvas>. Pure: everything it needs comes in through `settings`. Depends on Svg, ImageTools, Fonts, Icons, Shrink.
    Fonts must already be loaded (see Fonts.prepare), so nothing is drawn with a fallback font. */
 const Draw = (() => {
   'use strict';
@@ -118,15 +118,14 @@ const Draw = (() => {
 
   /**
    * Where the image goes in a square of `size`: the padded box it is clipped to, and the rectangle it is
-   * drawn in (contain or cover, centered). The PNG and SVG outputs both use this.
+   * drawn in (contain or cover, then the crop's zoom and position). The PNG and SVG outputs both use this.
    */
   function imageLayout(size, s, iw, ih) {
     const pad = (size * s.pad) / 100;
     const box = size - pad * 2;
-    const k = s.fit === 'cover' ? Math.max(box / iw, box / ih) : Math.min(box / iw, box / ih);
-    const w = iw * k;
-    const h = ih * k;
-    return { clip: { x: pad, y: pad, size: box }, x: (size - w) / 2, y: (size - h) / 2, w, h };
+    const zoom = (s.cropZoom || 100) / 100;
+    const r = ImageTools.cropRect(box, iw, ih, s.fit, zoom, (s.cropX || 0) / 100, (s.cropY || 0) / 100);
+    return { clip: { x: pad, y: pad, size: box }, x: pad + r.x, y: pad + r.y, w: r.w, h: r.h };
   }
 
   /* ---------- Shrinking images ---------- */

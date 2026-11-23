@@ -5,7 +5,7 @@ const Design = (() => {
   'use strict';
 
   /** Format version of stored designs, exported files and share links. Bump it with a migration. */
-  const FORMAT = 2;
+  const FORMAT = 3;
 
   /** The settings of format 1, with their defaults then. Old share links only hold changes from these. */
   const V1_DEFAULTS = Object.freeze({
@@ -20,6 +20,12 @@ const Design = (() => {
     border: false, borderWidth: 4, borderColor: '#ffffff', offsetX: 0, offsetY: 0,
     icon: 'star', iconStroke: 2, iconScale: 70
   });
+
+  /** The settings of format 2 and their defaults then: format 1's plus what format 2 added. */
+  const V2_DEFAULTS = Object.freeze(Object.assign({}, V1_DEFAULTS, V2_ADDED));
+
+  /** Settings added in format 3 (cropping uploaded images), with the values that change nothing. */
+  const V3_ADDED = Object.freeze({ cropZoom: 100, cropX: 0, cropY: 0 });
 
   const DEFAULTS = Object.freeze({
     mode: 'text',
@@ -52,12 +58,15 @@ const Design = (() => {
     offsetY: 0,
     icon: 'star',
     iconStroke: 2,
-    iconScale: 70
+    iconScale: 70,
+    cropZoom: 100,
+    cropX: 0,
+    cropY: 0
   });
 
   const RANGES = {
     textScale: [30, 100], radius: [0, 50], maskPad: [0, 30], pad: [0, 30],
-    angle: [0, 360], borderWidth: [1, 15], offsetX: [-20, 20], offsetY: [-20, 20], iconScale: [30, 100]
+    angle: [0, 360], borderWidth: [1, 15], offsetX: [-20, 20], offsetY: [-20, 20], iconScale: [30, 100], cropZoom: [100, 800]
   };
   const CHOICES = {
     mode: ['text', 'image', 'icon'], emoji: ['system', 'bundled'], fit: ['contain', 'cover'],
@@ -98,6 +107,11 @@ const Design = (() => {
     if (own(src, 'icon') && Icons.validName(src.icon)) out.icon = src.icon;
     const stroke = own(src, 'iconStroke') ? src.iconStroke : undefined;
     if (typeof stroke === 'number' && stroke >= 0.5 && stroke <= 3 && Number.isInteger(stroke * 4)) out.iconStroke = stroke;
+    // Crop position: percent of the frame, to one decimal (the crop math limits it further).
+    for (const k of ['cropX', 'cropY']) {
+      const v = own(src, k) ? src[k] : undefined;
+      if (typeof v === 'number' && v >= -1000 && v <= 1000 && Math.abs(v * 10 - Math.round(v * 10)) < 1e-9) out[k] = v;
+    }
     if (own(src, 'text') && typeof src.text === 'string') {
       out.text = Outputs.clip(src.text.replace(CONTROL, '').normalize('NFC'), Outputs.TEXT_MAX);
     }
@@ -196,6 +210,15 @@ const Design = (() => {
       for (const k of Object.keys(V1_DEFAULTS)) settings[k] = own(src, k) ? src[k] : V1_DEFAULTS[k];
       for (const k of Object.keys(V2_ADDED)) settings[k] = V2_ADDED[k];
       return { format: 2, settings, image: d.image || null };
+    },
+    // Format 3 added cropping. Missing format 2 settings get the format 2 defaults (again, links only kept
+    // changes), and the crop starts where it changes nothing.
+    2: (d) => {
+      const src = d.settings !== null && typeof d.settings === 'object' && !Array.isArray(d.settings) ? d.settings : {};
+      const settings = {};
+      for (const k of Object.keys(V2_DEFAULTS)) settings[k] = own(src, k) ? src[k] : V2_DEFAULTS[k];
+      for (const k of Object.keys(V3_ADDED)) settings[k] = V3_ADDED[k];
+      return { format: 3, settings, image: d.image || null };
     }
   };
 
@@ -402,7 +425,7 @@ const Design = (() => {
   }
 
   return {
-    FORMAT, DEFAULTS, V1_DEFAULTS, LINK_LIMIT, IMAGE_TYPES,
+    FORMAT, DEFAULTS, V1_DEFAULTS, V2_DEFAULTS, LINK_LIMIT, IMAGE_TYPES,
     validate, same, changes, validateImage, migrate, History,
     encodeHash, decodeHash, shareLink, isShareHash, toExport, fromExport,
     toBase64, fromBase64, toBase64Url, fromBase64Url

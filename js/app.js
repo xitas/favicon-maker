@@ -36,16 +36,19 @@
     borderWidth: $('borderWidth'), borderWidthOut: $('borderWidthOut'), borderColor: $('borderColor'),
     offsetX: $('offsetX'), offsetXOut: $('offsetXOut'), offsetY: $('offsetY'), offsetYOut: $('offsetYOut'), centerOffsets: $('centerOffsets'),
     darkBg2: $('darkBg2'), darkBg2Field: $('darkBg2Field'), darkBgLabel: $('darkBgLabel'),
-    checks: $('checks'), pasteImage: $('pasteImage'), modeIcon: $('modeIcon'), iconPanel: $('iconPanel'), iconSearch: $('iconSearch'), iconCount: $('iconCount'),
+    checks: $('checks'), pasteImage: $('pasteImage'), modeIcon: $('modeIcon'),
+    cropBox: $('cropBox'), crop: $('crop'), cropCanvas: $('cropCanvas'), cropStatus: $('cropStatus'),
+    cropZoom: $('cropZoom'), cropZoomOut: $('cropZoomOut'), cropX: $('cropX'), cropY: $('cropY'),
+    trimImage: $('trimImage'), resetCrop: $('resetCrop'), trimNote: $('trimNote'), suggest: $('suggest'), swatches: $('swatches'), iconPanel: $('iconPanel'), iconSearch: $('iconSearch'), iconCount: $('iconCount'),
     iconGrid: $('iconGrid'), iconNote: $('iconNote'), iconColor: $('iconColor'),
     iconStroke: $('iconStroke'), iconStrokeOut: $('iconStrokeOut'), iconScale: $('iconScale'), iconScaleOut: $('iconScaleOut')
   };
   const SECTIONS = Array.from(document.querySelectorAll('.controls details.section'));
 
-  const RANGES = ['textScale', 'pad', 'radius', 'maskPad', 'angle', 'borderWidth', 'offsetX', 'offsetY', 'iconStroke', 'iconScale'];
+  const RANGES = ['textScale', 'pad', 'radius', 'maskPad', 'angle', 'borderWidth', 'offsetX', 'offsetY', 'iconStroke', 'iconScale', 'cropZoom'];
   const INPUTS = ['text', 'font', 'bold', 'emoji', 'textScale', 'fg', 'fit', 'pad', 'bg', 'transparent', 'radius', 'maskPad', 'safeZone', 'dark', 'darkFg', 'darkBg', 'appName', 'basePath',
     'shape', 'bgType', 'bg2', 'angle', 'darkBg2', 'border', 'borderWidth', 'borderColor', 'offsetX', 'offsetY',
-    'iconStroke', 'iconScale'];
+    'iconStroke', 'iconScale', 'cropZoom'];
 
   let mode = 'text';
   let currentIcon = Design.DEFAULTS.icon; // the chosen library icon, by name
@@ -91,7 +94,10 @@
       offsetY: Number(el.offsetY.value),
       icon: currentIcon,
       iconStroke: Number(el.iconStroke.value),
-      iconScale: Number(el.iconScale.value)
+      iconScale: Number(el.iconScale.value),
+      cropZoom: Number(el.cropZoom.value),
+      cropX: Number(el.cropX.value),
+      cropY: Number(el.cropY.value)
     };
   }
 
@@ -441,6 +447,9 @@
     el.iconStrokeOut.textContent = String(s.iconStroke);
     el.iconScaleOut.textContent = s.iconScale + '%';
     el.iconColor.value = s.fg;
+    el.cropZoomOut.textContent = s.cropZoom + '%';
+    el.cropBox.hidden = !(s.mode === 'image' && image);
+    el.resetCrop.disabled = s.cropZoom === 100 && s.cropX === 0 && s.cropY === 0;
     const gradient = s.bgType !== 'solid';
     el.radiusField.hidden = s.shape !== 'rounded';
     el.bgLabel.textContent = gradient ? 'First color' : 'Background color';
@@ -455,6 +464,298 @@
     el.darkFgLabel.hidden = s.mode !== 'text';
     el.bg.disabled = s.transparent;
     el.snippet.querySelector('code').textContent = Outputs.snippet(s);
+  }
+
+  /* ---------- Crop, trim and suggested colors ---------- */
+  const CROP_VIEW = 240;  // CSS pixels of the crop view
+  const CROP_FRAME = 180; // CSS pixels of the square guide inside it
+  const cropBase = document.createElement('canvas'); // the crop view without the dimming, for picking colors
+  const pointers = new Map();
+  let pinch = null;
+
+  const round1 = (v) => Math.round(v * 10) / 10 + 0;
+  const imageSize = () => [image.naturalWidth || 512, image.naturalHeight || 512];
+
+  /** The image in the crop view: the square guide in the middle, the rest of the image dimmed around it. */
+  function drawCrop(s) {
+    if (!image || s.mode !== 'image') return;
+    const dpr = Math.max(1, Math.round(window.devicePixelRatio || 1));
+    const n = CROP_VIEW * dpr;
+    for (const c of [el.cropCanvas, cropBase]) {
+      if (c.width !== n) c.width = c.height = n;
+    }
+    el.cropCanvas.style.width = el.cropCanvas.style.height = CROP_VIEW + 'px';
+    const [iw, ih] = imageSize();
+    const r = ImageTools.cropRect(CROP_FRAME, iw, ih, s.fit, s.cropZoom / 100, s.cropX / 100, s.cropY / 100);
+    const inset = (CROP_VIEW - CROP_FRAME) / 2;
+    const base = cropBase.getContext('2d');
+    base.setTransform(dpr, 0, 0, dpr, 0, 0);
+    base.clearRect(0, 0, CROP_VIEW, CROP_VIEW);
+    base.imageSmoothingQuality = 'high';
+    base.drawImage(image, inset + r.x, inset + r.y, r.w, r.h);
+    const ctx = el.cropCanvas.getContext('2d');
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, n, n);
+    ctx.drawImage(cropBase, 0, 0);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    // Dim everything outside the square guide, then draw the guide.
+    ctx.beginPath();
+    ctx.rect(0, 0, CROP_VIEW, CROP_VIEW);
+    ctx.rect(inset, inset, CROP_FRAME, CROP_FRAME);
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
+    ctx.fill('evenodd');
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.6)';
+    ctx.strokeRect(inset, inset, CROP_FRAME, CROP_FRAME);
+    ctx.setLineDash([6, 4]);
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = '#ffffff';
+    ctx.strokeRect(inset, inset, CROP_FRAME, CROP_FRAME);
+  }
+
+  /** Set the crop (zoom 1 to 8, pan in fractions of the frame), kept within its limits. */
+  function setCrop(zoom, panX, panY, group) {
+    if (!image) return;
+    const s = readSettings();
+    const [iw, ih] = imageSize();
+    const z = ImageTools.clampZoom(zoom);
+    const r = ImageTools.cropRect(1, iw, ih, s.fit, z, panX, panY);
+    el.cropZoom.value = String(Math.round(z * 100));
+    el.cropX.value = String(round1(r.panX * 100));
+    el.cropY.value = String(round1(r.panY * 100));
+    refresh();
+    onChange(group === undefined ? 'crop' : group);
+  }
+
+  function currentCrop() {
+    return [Number(el.cropZoom.value) / 100, Number(el.cropX.value) / 100, Number(el.cropY.value) / 100];
+  }
+
+  /** For screen readers: where the crop is now. */
+  function announceCrop() {
+    const [z, x, y] = currentCrop();
+    const way = (v, a, b) => (v === 0 ? '' : ' ' + Math.abs(round1(v * 100)) + '% ' + (v > 0 ? a : b));
+    const moves = [way(x, 'right', 'left'), way(y, 'down', 'up')].filter(Boolean);
+    el.cropStatus.textContent = 'Zoom ' + Math.round(z * 100) + '%.' + (moves.length ? ' Moved' + moves.join(' and') + '.' : ' Centered.');
+  }
+
+  function onCropKey(e) {
+    const [z, x, y] = currentCrop();
+    const step = e.shiftKey ? 0.1 : 0.01;
+    let next = null;
+    if (e.key === 'ArrowLeft') next = [z, x - step, y];
+    else if (e.key === 'ArrowRight') next = [z, x + step, y];
+    else if (e.key === 'ArrowUp') next = [z, x, y - step];
+    else if (e.key === 'ArrowDown') next = [z, x, y + step];
+    else if (e.key === '+' || e.key === '=') next = [z * 1.1, x, y];
+    else if (e.key === '-' || e.key === '_') next = [z / 1.1, x, y];
+    else if (e.key === '0') next = [1, 0, 0];
+    if (!next) return;
+    e.preventDefault();
+    setCrop(next[0], next[1], next[2]);
+    announceCrop();
+  }
+
+  function onCropPointerDown(e) {
+    if (picking) return;
+    try { el.crop.setPointerCapture(e.pointerId); } catch (err) { /* keep following the pointer without capture */ }
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.size === 2) {
+      const [a, b] = Array.from(pointers.values());
+      pinch = { dist: Math.hypot(a.x - b.x, a.y - b.y), zoom: currentCrop()[0] };
+    }
+  }
+
+  function onCropPointerMove(e) {
+    const last = pointers.get(e.pointerId);
+    if (!last) return;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const [z, x, y] = currentCrop();
+    if (pointers.size >= 2 && pinch) {
+      const [a, b] = Array.from(pointers.values());
+      setCrop(pinch.zoom * (Math.hypot(a.x - b.x, a.y - b.y) / pinch.dist), x, y);
+    } else {
+      // The frame on screen is CROP_FRAME CSS pixels; scale for the canvas's displayed size.
+      const scale = el.cropCanvas.getBoundingClientRect().width / CROP_VIEW;
+      setCrop(z, x + (e.clientX - last.x) / (CROP_FRAME * scale), y + (e.clientY - last.y) / (CROP_FRAME * scale));
+    }
+  }
+
+  function onCropPointerUp(e) {
+    pointers.delete(e.pointerId);
+    if (pointers.size < 2) pinch = null;
+    announceCrop();
+  }
+
+  function onCropWheel(e) {
+    e.preventDefault();
+    const [z, x, y] = currentCrop();
+    setCrop(z * Math.exp(-e.deltaY * 0.0015), x, y);
+  }
+
+  /** Trim empty edges: zoom and move so the content inside plain or transparent margins fills the frame. */
+  function trimImage() {
+    if (!image) return;
+    const [iw, ih] = imageSize();
+    const k = Math.min(1, 1024 / Math.max(iw, ih));
+    const w = Math.max(1, Math.round(iw * k));
+    const h = Math.max(1, Math.round(ih * k));
+    const c = document.createElement('canvas');
+    c.width = w;
+    c.height = h;
+    const ctx = c.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(image, 0, 0, w, h);
+    const b = ImageTools.trimBounds(ctx.getImageData(0, 0, w, h).data, w, h);
+    if (!b || (b.w >= w - 1 && b.h >= h - 1)) {
+      setStatus(el.trimNote, 'This image has no empty or plain edges to trim.', false);
+      return;
+    }
+    const crop = ImageTools.trimCrop({ x: b.x / k, y: b.y / k, w: b.w / k, h: b.h / k }, iw, ih, readSettings().fit);
+    el.cropZoom.value = String(crop.zoom);
+    el.cropX.value = String(crop.x);
+    el.cropY.value = String(crop.y);
+    refresh();
+    onChange(null);
+    announceCrop();
+    setStatus(el.trimNote, b.background === 'transparent' ? 'Trimmed the empty edges.' : 'Trimmed the plain edges (' + b.background + ').', false);
+  }
+
+  /** Background colors taken from the image: its edge color first, then its main colors. */
+  function showSuggestions(img) {
+    el.swatches.replaceChildren();
+    if (!img) {
+      el.suggest.hidden = true;
+      return;
+    }
+    const iw = img.naturalWidth || 512;
+    const ih = img.naturalHeight || 512;
+    const k = Math.min(1, 64 / Math.max(iw, ih));
+    const w = Math.max(1, Math.round(iw * k));
+    const h = Math.max(1, Math.round(ih * k));
+    const c = document.createElement('canvas');
+    c.width = w;
+    c.height = h;
+    const ctx = c.getContext('2d', { willReadFrequently: true });
+    let p;
+    try {
+      ctx.drawImage(img, 0, 0, w, h);
+      p = ImageTools.palette(ctx.getImageData(0, 0, w, h).data, w, h, 4);
+    } catch (e) {
+      el.suggest.hidden = true;
+      return;
+    }
+    const colors = [];
+    if (p.edge) colors.push([p.edge, true]);
+    p.main.forEach((hex) => { if (hex !== p.edge) colors.push([hex, false]); });
+    colors.slice(0, 5).forEach(([hex, edge]) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'swatch';
+      b.dataset.color = hex;
+      b.style.backgroundColor = hex;
+      const label = 'Use ' + hex + (edge ? ', the image’s edge color,' : '') + ' as the background color';
+      b.setAttribute('aria-label', label);
+      b.title = label;
+      b.addEventListener('click', () => {
+        el.bg.value = hex;
+        el.transparent.checked = false;
+        refresh();
+        onChange(null);
+      });
+      el.swatches.appendChild(b);
+    });
+    el.suggest.hidden = colors.length === 0;
+  }
+
+  /* ---------- Eyedroppers ---------- */
+  const COLOR_FIELDS = [
+    ['fg', 'text color'], ['iconColor', 'icon color'], ['bg', 'background color'], ['bg2', 'second color'],
+    ['darkFg', 'dark mode text color'], ['darkBg', 'dark mode background color'], ['darkBg2', 'dark mode second color'],
+    ['borderColor', 'border color']
+  ];
+  let picking = null; // { input, name } while waiting for a click on the crop view or the 512 px preview
+
+  function addEyedroppers() {
+    COLOR_FIELDS.forEach(([id, name]) => {
+      const input = el[id];
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'eyedrop';
+      b.dataset.for = id;
+      b.setAttribute('aria-label', 'Pick the ' + name + ' from the screen');
+      b.title = 'Pick the ' + name + ' from the screen';
+      const svg = document.createElementNS(SVG_NS, 'svg');
+      svg.setAttribute('viewBox', '0 0 24 24');
+      svg.setAttribute('aria-hidden', 'true');
+      const path = document.createElementNS(SVG_NS, 'path');
+      path.setAttribute('d', 'M17 3a2.8 2.8 0 0 1 4 4l-3 3 1 1-2 2-6-6 2-2 1 1zM10 8l6 6-7 7H3v-6z');
+      svg.appendChild(path);
+      b.appendChild(svg);
+      b.addEventListener('click', (e) => {
+        e.preventDefault(); // inside a label: don't open the color picker
+        pickColor(input, name);
+      });
+      input.insertAdjacentElement('afterend', b);
+    });
+  }
+
+  function toHex(value) {
+    const v = String(value || '').trim();
+    if (/^#[0-9a-f]{6}$/i.test(v)) return v.toLowerCase();
+    const m = /^rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)/i.exec(v);
+    return m ? '#' + [m[1], m[2], m[3]].map((n) => Math.min(255, Number(n)).toString(16).padStart(2, '0')).join('') : null;
+  }
+
+  function applyPicked(input, name, value) {
+    const hex = toHex(value);
+    if (!hex) return;
+    input.value = hex;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    setAppNote('Picked ' + hex + ' for the ' + name + '.', false);
+  }
+
+  function stopPicking(message) {
+    picking = null;
+    document.body.classList.remove('picking');
+    if (message !== undefined) setAppNote(message, false);
+  }
+
+  /** The browser's EyeDropper where it has one; otherwise a click on the crop view or the 512 px preview. */
+  async function pickColor(input, name) {
+    if (typeof window.EyeDropper === 'function') {
+      try {
+        const result = await new window.EyeDropper().open();
+        applyPicked(input, name, result.sRGBHex);
+      } catch (e) { /* cancelled */ }
+      return;
+    }
+    picking = { input, name };
+    document.body.classList.add('picking');
+    if (mode !== 'image' || !image) Previews.show('sizes');
+    setAppNote('Click a pixel on the ' + (mode === 'image' && image ? 'crop view or the ' : '') + '512 px preview to pick the ' + name + '. Press Esc to cancel.', false);
+  }
+
+  /** While picking: a click on the crop view or the 512 px preview takes that pixel's color. */
+  function onPickClick(e) {
+    if (!picking) return;
+    const preview = e.target.closest('#sizes canvas[aria-label="512 pixel preview"]');
+    const crop = e.target.closest('#crop');
+    if (!preview && !crop) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const source = crop ? cropBase : preview;
+    const rect = (crop ? el.cropCanvas : preview).getBoundingClientRect();
+    const x = Math.floor(((e.clientX - rect.left) / rect.width) * source.width);
+    const y = Math.floor(((e.clientY - rect.top) / rect.height) * source.height);
+    const d = source.getContext('2d').getImageData(Math.min(x, source.width - 1), Math.min(y, source.height - 1), 1, 1).data;
+    if (d[3] < 128) {
+      setAppNote('That spot is see-through. Click a colored pixel, or press Esc to cancel.', false);
+      return;
+    }
+    const { input, name } = picking;
+    stopPicking();
+    applyPicked(input, name, '#' + [d[0], d[1], d[2]].map((v) => v.toString(16).padStart(2, '0')).join(''));
   }
 
   /* ---------- Design checks ---------- */
@@ -506,6 +807,7 @@
   /** Draw every preview with settings whose fonts are loaded. */
   function draw(s) {
     updateChecks(s);
+    drawCrop(s);
     Previews.draw(s);
     thumbs.forEach((t) => Draw.icon(t.canvas.getContext('2d'), t.size, s, t.variant));
     Draw.icon(el.heroIcon.getContext('2d'), el.heroIcon.width, s, false);
@@ -639,6 +941,8 @@
         imageUrl = url;
         imageSvg = svg;
         imageRecord = record || null;
+        showSuggestions(img);
+        setStatus(el.trimNote, '', false);
         el.dropText.textContent = name;
         setNote((img.naturalWidth || '?') + ' × ' + (img.naturalHeight || '?') + ' px. Choose another image any time.', false);
         updateDownloads();
@@ -725,6 +1029,7 @@
     imageUrl = null;
     imageSvg = null;
     imageRecord = null;
+    showSuggestions(null);
     el.file.value = '';
     el.dropText.textContent = DEFAULT_DROP_TEXT;
     setNote(DEFAULT_FILE_NOTE, false);
@@ -1231,6 +1536,16 @@
     });
     document.addEventListener('paste', onPaste);
     el.pasteImage.addEventListener('click', pasteFromButton);
+    el.crop.addEventListener('keydown', onCropKey);
+    el.crop.addEventListener('pointerdown', onCropPointerDown);
+    el.crop.addEventListener('pointermove', onCropPointerMove);
+    el.crop.addEventListener('pointerup', onCropPointerUp);
+    el.crop.addEventListener('pointercancel', onCropPointerUp);
+    el.crop.addEventListener('wheel', onCropWheel, { passive: false });
+    el.trimImage.addEventListener('click', trimImage);
+    el.resetCrop.addEventListener('click', () => { setCrop(1, 0, 0, null); announceCrop(); });
+    document.addEventListener('click', onPickClick, true);
+    document.addEventListener('keydown', (e) => { if (picking && e.key === 'Escape') stopPicking('Picking a color was cancelled.'); });
 
     const zipEntry = { button: el.zip, busy: false, note: el.filesNote };
     downloads.push(zipEntry);
@@ -1270,6 +1585,7 @@
   setUpSections();
   buildFontMenu();
   Previews.init(refresh);
+  addEyedroppers();
   buildFileList();
   bindEvents();
   enforceTextLimit();

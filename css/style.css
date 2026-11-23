@@ -648,6 +648,35 @@ canvas.real { display: block; flex: none; }
 
 /* Image source extras */
 .image-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.crop-box { display: flex; flex-direction: column; gap: 12px; }
+.crop {
+  width: 240px;
+  height: 240px;
+  max-width: 100%;
+  border-radius: 10px;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+  background-color: var(--check-a);
+  background-image:
+    linear-gradient(45deg, var(--check-b) 25%, transparent 25%, transparent 75%, var(--check-b) 75%),
+    linear-gradient(45deg, var(--check-b) 25%, transparent 25%, transparent 75%, var(--check-b) 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 8px 8px;
+  box-shadow: 0 0 0 1px var(--line);
+}
+.crop:active { cursor: grabbing; }
+.crop:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+.crop canvas { display: block; width: 100%; height: 100%; }
+.swatches { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.swatch { width: 34px; height: 34px; padding: 0; border: 1px solid var(--swatch-line); border-radius: 8px; }
+.swatch:hover { transform: scale(1.08); border-color: var(--fg); }
+
+/* Eyedroppers */
+.color input[type="color"] { margin-left: auto; }
+.eyedrop { width: 34px; height: 34px; padding: 0; display: grid; place-items: center; flex: none; }
+.eyedrop svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; }
+body.picking #crop, body.picking #sizes canvas[aria-label="512 pixel preview"] { cursor: crosshair; outline: 2px dashed var(--fg); outline-offset: 2px; }
 
 /* Undo, redo and reset */
 .toolbar { display: flex; flex-wrap: wrap; gap: 6px; }

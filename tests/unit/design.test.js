@@ -22,7 +22,7 @@ test('validate keeps every valid setting', () => {
     transparent: true, radius: 50, maskPad: 0, dark: true, darkFg: '#000000', darkBg: '#ffffff', fit: 'cover', pad: 30,
     appName: 'Café 😀', basePath: '/repo/', shape: 'squircle', bgType: 'radial', bg2: '#101010', angle: 360,
     darkBg2: '#202020', border: true, borderWidth: 15, borderColor: '#303030', offsetX: -20, offsetY: 20,
-    icon: 'coffee', iconStroke: 1.25, iconScale: 100
+    icon: 'coffee', iconStroke: 1.25, iconScale: 100, cropZoom: 800, cropX: -100, cropY: 12.5
   };
   assert.deepEqual(plain(Design.validate(good)), { ...good, bg: '#aabbcc' });
 });
@@ -59,7 +59,10 @@ test('validate: each invalid value falls back to its default', async (t) => {
     offsetY: [100, -100, null],
     icon: ['Star', 'star!', '../x', 'a--b', '-star', 'x'.repeat(65), 5, ''],
     iconStroke: [0.25, 3.5, 1.3, '2', NaN],
-    iconScale: [29, 101, 50.5]
+    iconScale: [29, 101, 50.5],
+    cropZoom: [99, 801, 150.5, '200'],
+    cropX: [-1000.1, 1001, 0.05, '5', NaN],
+    cropY: [1e6, 3.33]
   };
   for (const [key, values] of Object.entries(bad)) {
     for (const value of values) {
@@ -123,9 +126,9 @@ test('migrate: a bare settings object (format 0) becomes the current format', ()
   assert.equal(d.image, null);
 });
 
-test('migrate: format 1 becomes format 2 and looks the same', () => {
+test('migrate: format 1 becomes the current format and looks the same', () => {
   const d = Design.migrate({ format: 1, settings: { text: 'Q', radius: 5, bg: '#123456', transparent: true } });
-  assert.equal(d.format, 2);
+  assert.equal(d.format, Design.FORMAT);
   assert.deepEqual(plain(d.settings), { ...D, text: 'Q', radius: 5, bg: '#123456', transparent: true,
     shape: 'rounded', bgType: 'solid', border: false, offsetX: 0, offsetY: 0 });
 });
@@ -145,11 +148,24 @@ test('migrate: the image comes through every step', () => {
   assert.equal(Design.migrate({ format: 1, settings: {}, image }).image, image);
 });
 
+test('migrate: format 2 becomes format 3 with the crop changing nothing', () => {
+  const d = Design.migrate({ format: 2, settings: { mode: 'image', fit: 'cover', shape: 'circle', icon: 'leaf', pad: 7 } });
+  assert.equal(d.format, 3);
+  assert.deepEqual([d.settings.cropZoom, d.settings.cropX, d.settings.cropY], [100, 0, 0]);
+  assert.deepEqual([d.settings.mode, d.settings.fit, d.settings.shape, d.settings.icon, d.settings.pad], ['image', 'cover', 'circle', 'leaf', 7]);
+  // Missing format 2 settings get the format 2 defaults; crop settings in a format 2 design are ignored.
+  const sparse = Design.migrate({ format: 2, settings: { cropZoom: 400, border: true } });
+  for (const [k, v] of Object.entries(Design.V2_DEFAULTS)) if (k !== 'border') assert.equal(sparse.settings[k], v, k);
+  assert.equal(sparse.settings.border, true);
+  assert.equal(sparse.settings.cropZoom, 100, 'format 2 had no crop');
+  assert.equal(Design.migrate({ format: 2, settings: 'x' }).settings.text, 'F');
+});
+
 test('migrate: the current format passes through, missing settings get defaults', () => {
-  const d = Design.migrate({ format: 2, settings: { radius: 5 } });
+  const d = Design.migrate({ format: 3, settings: { radius: 5 } });
   assert.equal(d.settings.radius, 5);
   assert.equal(d.settings.maskPad, 10);
-  assert.deepEqual(plain(Design.migrate({ format: 2 }).settings), D);
+  assert.deepEqual(plain(Design.migrate({ format: 3 }).settings), D);
 });
 
 test('migrate refuses a newer format and things that are not designs', () => {
@@ -228,7 +244,7 @@ const SETTINGS = Design.validate({ text: '👍🏽Ab', font: 'handwritten', bg: 
 for (const [label, Lib] of [['compressed', Design], ['uncompressed (no CompressionStream)', Plain]]) {
   test(`share link round trip, ${label}`, async () => {
     const hash = await Lib.encodeHash(SETTINGS, null);
-    assert.match(hash, Lib === Design ? /^#d2=[0-9a-f]{8}\.[A-Za-z0-9_-]+$/ : /^#d2r=[0-9a-f]{8}\.[A-Za-z0-9_-]+$/);
+    assert.match(hash, Lib === Design ? /^#d3=[0-9a-f]{8}\.[A-Za-z0-9_-]+$/ : /^#d3r=[0-9a-f]{8}\.[A-Za-z0-9_-]+$/);
     assert.equal(Lib.isShareHash(hash), true);
     const d = await Lib.decodeHash(hash);
     assert.deepEqual(plain(d.settings), plain(SETTINGS));
@@ -332,6 +348,14 @@ test('a format 1 exported file still opens', () => {
   assert.equal(d.settings.shape, 'rounded');
 });
 
+test('a format 2 share link still opens, with no crop', async () => {
+  const { Zip } = loadScripts();
+  const json = new TextEncoder().encode(JSON.stringify({ f: 2, s: { mode: 'icon', icon: 'leaf', shape: 'circle' } }));
+  const sum = (Zip.crc32(json) >>> 0).toString(16).padStart(8, '0');
+  const d = await Design.decodeHash('#d2r=' + sum + '.' + Design.toBase64Url(json));
+  assert.deepEqual([d.settings.mode, d.settings.icon, d.settings.shape, d.settings.cropZoom], ['icon', 'leaf', 'circle', 100]);
+});
+
 test('isShareHash', () => {
   for (const yes of ['#d1=x', '#d1r=x', '#d2=x']) assert.equal(Design.isShareHash(yes), true, yes);
   for (const no of ['', '#', '#top', '#d=1', 'd1=x', null]) assert.equal(Design.isShareHash(no), false, String(no));
@@ -340,7 +364,7 @@ test('isShareHash', () => {
 test('shareLink leaves out an image that makes the link too long', async () => {
   const small = await Design.shareLink('https://example.com/app/#old', SETTINGS, { type: 'image/png', bytes: PNG });
   assert.equal(small.imageLeftOut, false);
-  assert.ok(small.url.startsWith('https://example.com/app/#d2='));
+  assert.ok(small.url.startsWith('https://example.com/app/#d3='));
   // Random bytes don't compress: 8 KB of them can never fit in an 8,000-character link.
   let seed = 12345;
   const noise = new Uint8Array(8000).map(() => { seed ^= seed << 13; seed ^= seed >>> 17; seed ^= seed << 5; return seed & 255; });
