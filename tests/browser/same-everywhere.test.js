@@ -3,12 +3,16 @@
  * "Same everywhere": the same icon drawn in Chromium and Firefox with each bundled font should match.
  * Small antialiasing differences are fine; different letter shapes are not.
  * Compares the ink (alpha) of each icon at 16, 32 and 512 px. Skipped when Firefox isn't installed.
- * Set SAME_EVERYWHERE_REPORT=1 to print the numbers.
+ * Set SAME_EVERYWHERE_REPORT=1 to print the numbers. When a case fails, both renders and a difference image
+ * of each size are saved in test-results/same-everywhere/ (CI uploads that folder), 16 and 32 px also
+ * enlarged 16 times. SAME_EVERYWHERE_IMAGES=1 saves them for every case.
  */
 const { describe, test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const { launch, openApp, targets } = require('../helpers/browser');
-const { readPng } = require('../helpers/formats');
+const fs = require('node:fs');
+const path = require('node:path');
+const { readPng, makePng } = require('../helpers/formats');
 const { loadScripts } = require('../helpers/load');
 
 const { Fonts } = loadScripts();
@@ -17,6 +21,7 @@ const SIZES = [16, 32, 512];
 const TEXT = 'Ag';
 const EMOJI = '😀👍🏽';
 const REPORT = !!process.env.SAME_EVERYWHERE_REPORT;
+const OUT = path.join(__dirname, '..', '..', 'test-results', 'same-everywhere');
 
 // Limits: mean alpha difference per pixel (0-255), and the overlap of the inked areas (1 = identical).
 // At 512 px the browsers match almost exactly, so any change of letter shape fails (Inter vs Source Serif 4
@@ -47,6 +52,41 @@ function compare(a, b) {
     if (inkA || inkB) either++;
   }
   return { meanDiff: diff / (a.data.length / 4), overlap: either ? both / either : 1 };
+}
+
+/** An image, enlarged `k` times with square pixels, as a PNG file. */
+function pngOf(img, k) {
+  return makePng(img.width * k, img.height * k, (x, y) => {
+    const i = (Math.floor(y / k) * img.width + Math.floor(x / k)) * 4;
+    return Array.from(img.data.subarray(i, i + 4));
+  });
+}
+
+/** Black where only Chromium has ink, red where only Firefox has it, gray where both, on white. */
+function diffImage(a, b) {
+  const data = new Uint8ClampedArray(a.data.length);
+  for (let i = 0; i < data.length; i += 4) {
+    const pa = a.data[i + 3] / 255;
+    const pb = b.data[i + 3] / 255;
+    const both = Math.min(pa, pb);
+    const onlyA = pa - both;
+    const onlyB = pb - both;
+    data[i] = 255 * (1 - both * 0.25 - onlyA);
+    data[i + 1] = 255 * (1 - both * 0.25 - onlyA - onlyB);
+    data[i + 2] = 255 * (1 - both * 0.25 - onlyA - onlyB);
+    data[i + 3] = 255;
+  }
+  return { width: a.width, height: a.height, data };
+}
+
+/** Save both renders and their difference, for inspecting a failure. */
+function saveImages(name, size, a, b) {
+  fs.mkdirSync(OUT, { recursive: true });
+  const base = path.join(OUT, name.replace(/[^a-z0-9]+/gi, '-').replace(/-$/, '').toLowerCase() + '-' + size);
+  const k = size <= 32 ? 16 : 1;
+  fs.writeFileSync(base + '-chromium.png', pngOf(a, k));
+  fs.writeFileSync(base + '-firefox.png', pngOf(b, k));
+  fs.writeFileSync(base + '-diff.png', pngOf(diffImage(a, b), k));
 }
 
 function settingsFor(font, text, emoji) {
@@ -91,9 +131,17 @@ describe('same everywhere: Chromium and Firefox draw the same icons', () => {
       const pages = await Promise.all([openApp(chromium, url), openApp(firefox, url)]);
       try {
         const [inChromium, inFirefox] = await Promise.all(pages.map((p) => renderSet(p.page, c.settings)));
+        const measured = [];
         SIZES.forEach((size, i) => {
           const r = compare(inChromium[i], inFirefox[i]);
           results.push({ name: c.name, size, ...r });
+          if (r.meanDiff > MAX_MEAN_DIFF[size] || r.overlap < MIN_OVERLAP[size] || process.env.SAME_EVERYWHERE_IMAGES) {
+            saveImages(c.name, size, inChromium[i], inFirefox[i]);
+          }
+          measured.push(r);
+        });
+        SIZES.forEach((size, i) => {
+          const r = measured[i];
           assert.ok(r.meanDiff <= MAX_MEAN_DIFF[size], `${size} px: mean alpha difference ${r.meanDiff.toFixed(2)}`);
           assert.ok(r.overlap >= MIN_OVERLAP[size], `${size} px: ink overlap ${r.overlap.toFixed(3)}`);
         });
