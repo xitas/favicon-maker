@@ -425,7 +425,7 @@ const Design = (() => {
   }
 
   return {
-    FORMAT, DEFAULTS, V1_DEFAULTS, V2_DEFAULTS, LINK_LIMIT, IMAGE_TYPES,
+    FORMAT, DEFAULTS, V1_DEFAULTS, V2_DEFAULTS, LINK_LIMIT, IMAGE_TYPES, RANGES, CHOICES,
     validate, same, changes, validateImage, migrate, History,
     encodeHash, decodeHash, shareLink, isShareHash, toExport, fromExport,
     toBase64, fromBase64, toBase64Url, fromBase64Url

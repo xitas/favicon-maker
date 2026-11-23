@@ -27,6 +27,7 @@
     sizes: $('sizes'), files: $('files'), filesNote: $('filesNote'), zip: $('zip'),
     basePath: $('basePath'), snippet: $('snippet'), copySnippet: $('copySnippet'),
     undo: $('undo'), redo: $('redo'), reset: $('reset'), appNote: $('appNote'),
+    surprise: $('surprise'), templateNote: $('templateNote'), secTemplates: $('secTemplates'), templates: $('templates'),
     share: $('share'), shareBox: $('shareBox'), shareUrl: $('shareUrl'), shareNote: $('shareNote'),
     designName: $('designName'), saveDesign: $('saveDesign'), designsNote: $('designsNote'), undoDelete: $('undoDelete'),
     designs: $('designs'), designsEmpty: $('designsEmpty'), exportDesign: $('exportDesign'), importDesign: $('importDesign'),
@@ -407,6 +408,7 @@
         updateFontControls();
         updateEmojiNote(raw, s);
         draw(s);
+        drawTemplates();
       }, (err) => {
         if (seq !== drawSeq) return;
         if (raw.mode === 'icon' && Icons.loaded() && !Icons.get(raw.icon)) updateIconNote();
@@ -1108,6 +1110,70 @@
     setStatus(el.designsNote, 'Reset to the default design. Undo brings yours back.', false);
   }
 
+  /* Templates and Surprise me */
+
+  const TEMPLATE_THUMB = 48; // CSS pixels
+  const templateThumbs = new Map(); // template id → { canvas, key }
+
+  function buildTemplates() {
+    Templates.LIST.forEach((t) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'template';
+      button.dataset.template = t.id;
+      const canvas = document.createElement('canvas');
+      canvas.setAttribute('aria-hidden', 'true');
+      canvas.style.width = canvas.style.height = TEMPLATE_THUMB + 'px';
+      const name = document.createElement('span');
+      name.textContent = t.name;
+      button.append(canvas, name);
+      button.addEventListener('click', () => applyTemplate(t));
+      el.templates.appendChild(button);
+      templateThumbs.set(t.id, { canvas, key: '' });
+    });
+  }
+
+  /**
+   * Draw the thumbnails with the real drawing code, showing the person's own text. Only while the section
+   * is open, so the fonts they need download only then. Each waits for its font: nothing is drawn with a
+   * fallback.
+   */
+  function drawTemplates() {
+    if (!el.secTemplates.open) return;
+    const current = currentSettings();
+    const size = Math.round(TEMPLATE_THUMB * Math.min(3, window.devicePixelRatio || 1));
+    Templates.LIST.forEach((t) => {
+      const thumb = templateThumbs.get(t.id);
+      const s = Templates.design(t, current);
+      const key = size + '|' + JSON.stringify(s);
+      if (thumb.key === key) return;
+      thumb.key = key;
+      Outputs.prepare(s).then((ready) => {
+        if (thumb.key !== key) return;
+        thumb.canvas.width = thumb.canvas.height = size;
+        Draw.icon(thumb.canvas.getContext('2d'), size, ready, false);
+        thumb.canvas.dataset.drawn = '1';
+        thumb.canvas.toggleAttribute('data-transparent', !!ready.transparent);
+      }, () => { /* left blank: the template still applies, and the preview says what's wrong */ });
+    });
+  }
+
+  async function applyTemplate(t) {
+    if (!(await okToReplace('Use the “' + t.name + '” template?', 'Use template'))) return;
+    await applyState({ settings: Templates.design(t, currentSettings()), image: null });
+    el.designName.value = '';
+    savedFrom = null;
+    onChange(null);
+    setStatus(el.templateNote, 'Applied the “' + t.name + '” template. Undo brings your design back.', false);
+  }
+
+  /** A random look that always reads well. Keeps the text or image, so it never needs to ask first. */
+  async function surpriseMe() {
+    await applyState({ settings: Templates.surprise(currentSettings()), image: imageRecord });
+    onChange(null);
+    setStatus(el.templateNote, 'Here’s a new look. Undo brings the last one back.', false);
+  }
+
   /* Autosave */
 
   function scheduleSave() {
@@ -1502,6 +1568,9 @@
     el.undo.addEventListener('click', () => moveHistory('undo'));
     el.redo.addEventListener('click', () => moveHistory('redo'));
     el.reset.addEventListener('click', resetDesign);
+    el.surprise.addEventListener('click', surpriseMe);
+    buildTemplates();
+    el.secTemplates.addEventListener('toggle', drawTemplates);
     el.centerOffsets.addEventListener('click', () => {
       el.offsetX.value = el.offsetY.value = '0';
       refresh();

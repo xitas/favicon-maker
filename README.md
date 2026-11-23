@@ -8,6 +8,7 @@ A favicon generator built with plain HTML, CSS and JavaScript. Make an icon from
 
 - **Three sources:** type up to 3 letters or emoji, pick one of about 2,100 icons from the Lucide library, or upload an image (PNG, JPG, SVG, WebP). Paste an image or SVG code with Ctrl+V (⌘V on a Mac) or the Paste image button, or drop one anywhere on the page. A link alone is never downloaded: save the image first
 - **Crop and colors from your image:** drag, zoom (slider, mouse wheel, pinch or keyboard) and trim empty edges so the logo fills the square. Pick any color with the eyedropper next to each color picker, or use one of the background colors suggested from the image
+- **Templates and Surprise me:** start from one of 16 ready-made styles, shown with your own text, or let Surprise me pick colors, a shape and a font that always read well. Both are one undo step
 - **Design controls:** 8 bundled fonts, bold, text size and color; a rounded square, circle, squircle or square shape; a solid, linear gradient or radial gradient background, or none; an optional border; position fine-tuning; and optional different colors in dark mode
 - **Emoji style:** this device's emoji, or the same emoji everywhere with a bundled emoji font
 - **Live previews, at real size:** the icon at 16, 32, 48, 180 and 512 px; the Android maskable icon cut to the circle, squircle, rounded square and teardrop shapes, with an optional safe zone overlay; light and dark browser tabs, a bookmarks bar and a search result; and iPhone and Android home screens on a light, dark or colorful wallpaper. Everything around the icon is a plain gray placeholder.
@@ -44,6 +45,7 @@ A favicon generator built with plain HTML, CSS and JavaScript. Make an icon from
 │   │   ├── ico.js      # ICO builder that packs PNG images
 │   │   ├── shrink.js   # Shrinks images step by step, in premultiplied alpha
 │   │   └── svg.js      # favicon.svg: glyph outlines, the SVG document, and cleaning uploaded SVGs
+│   ├── imagetools.js   # Pastes and drops, crop math, trimming edges, colors from an image
 │   ├── fonts.js        # Bundled font list, character coverage and font loading
 │   ├── icons.js        # The icon set: loading, lookup and search
 │   ├── dialog.js       # Confirm and prompt dialogs
@@ -51,6 +53,9 @@ A favicon generator built with plain HTML, CSS and JavaScript. Make an icon from
 │   ├── outputs.js      # Generated files, manifest, HTML snippet, text and path helpers
 │   ├── design.js       # Checking settings, format versions, undo history, share links, export files
 │   ├── store.js        # Saving in the browser (localStorage and IndexedDB)
+│   ├── checks.js       # Design checks: contrast, tabs, small text, thin lines
+│   ├── templates.js    # The template gallery and Surprise me
+│   ├── previews.js     # Preview tabs and mockups
 │   └── app.js          # Page UI: form, previews, downloads, saving and sharing
 ├── tests/
 │   ├── helpers/        # Loads the scripts in Node, file format readers, browser setup
@@ -153,7 +158,7 @@ The icon paths inside `site.webmanifest` are relative to the manifest, so they w
 
 ## Fonts
 
-The icon fonts are bundled in `assets/fonts/`, trimmed to Latin and Latin Extended characters and to their kerning (no ligatures or alternate letter forms), so each character is always one outline and `favicon.svg` matches the PNGs. A font is downloaded only when you choose it (345 KB for all eight; 30 to 105 KB each). The icon's letters are drawn from the font's own glyph outlines (90 to 390 KB per weight, loaded with the font), not by the browser's text engine, so they come out the same in every browser and on every system, and `favicon.svg` uses the same outlines. Emoji, and characters the bundled fonts don't have, are drawn by the browser. Each folder has the font's license next to it.
+The icon fonts are bundled in `assets/fonts/`, trimmed to Latin and Latin Extended characters and to their kerning (no ligatures or alternate letter forms), so each character is always one outline and `favicon.svg` matches the PNGs. A font is downloaded only when you choose it, or when you open Templates, whose previews use them (345 KB for all eight; 30 to 105 KB each). The icon's letters are drawn from the font's own glyph outlines (90 to 390 KB per weight, loaded with the font), not by the browser's text engine, so they come out the same in every browser and on every system, and `favicon.svg` uses the same outlines. Emoji, and characters the bundled fonts don't have, are drawn by the browser. Each folder has the font's license next to it.
 
 | Style | Font | Designer | License |
 |---|---|---|---|

@@ -20,11 +20,21 @@
 
     <div class="layout">
       <section class="panel controls" aria-label="Design">
-        <div class="toolbar" role="group" aria-label="Design history">
+        <div class="toolbar" role="group" aria-label="Design actions">
           <button id="undo" class="btn ghost small" type="button" aria-keyshortcuts="Control+Z Meta+Z" disabled>Undo</button>
           <button id="redo" class="btn ghost small" type="button" aria-keyshortcuts="Control+Shift+Z Meta+Shift+Z Control+Y" disabled>Redo</button>
           <button id="reset" class="btn ghost small" type="button">Reset to default</button>
+          <button id="surprise" class="btn ghost small" type="button" aria-describedby="templateNote">Surprise me</button>
         </div>
+        <p id="templateNote" class="hint note-line" role="status"></p>
+
+        <details class="section" id="secTemplates">
+          <summary>Templates</summary>
+          <div class="section-body">
+            <p id="templatesHelp" class="hint">Start from a style. Your text stays; Undo brings your design back.</p>
+            <div id="templates" class="templates" role="group" aria-label="Templates" aria-describedby="templatesHelp"></div>
+          </div>
+        </details>
 
         <details class="section" id="secSource" open>
           <summary>Source</summary>
@@ -431,6 +441,7 @@
   <script src="js/design.js" defer></script>
   <script src="js/store.js" defer></script>
   <script src="js/checks.js" defer></script>
+  <script src="js/templates.js" defer></script>
   <script src="js/dialog.js" defer></script>
   <script src="js/previews.js" defer></script>
   <script src="js/app.js" defer></script>

@@ -50,6 +50,7 @@ for (const target of targets()) {
         let big = await bigPng(page);
         assert.ok(near(pixel(big, 200, 256), RED) && near(pixel(big, 312, 256), BLUE), 'red left of center, blue right');
 
+        await page.locator('#crop').scrollIntoViewIfNeeded();
         const box = await page.locator('#crop').boundingBox();
         await page.mouse.move(box.x + 120, box.y + 120);
         await page.mouse.down();
