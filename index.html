@@ -105,7 +105,10 @@
               <span id="dropText">Drop an image here, or click to choose</span>
               <input type="file" id="file" accept="image/*">
             </label>
-            <p id="fileNote" class="hint">PNG, JPG, SVG or WebP. A square image works best.</p>
+            <div class="image-actions">
+              <button id="pasteImage" class="btn ghost small" type="button" aria-describedby="fileNote">Paste image</button>
+            </div>
+            <p id="fileNote" class="hint" role="status">PNG, JPG, SVG or WebP. A square image works best. You can also paste one anywhere on the page with Ctrl+V (⌘V on a Mac).</p>
             <div class="two">
               <label class="col" for="fit">Fit
                 <select id="fit">
@@ -398,6 +401,7 @@
   <script src="js/lib/ico.js" defer></script>
   <script src="js/lib/shrink.js" defer></script>
   <script src="js/lib/svg.js" defer></script>
+  <script src="js/imagetools.js" defer></script>
   <script src="js/fonts.js" defer></script>
   <script src="js/icons.js" defer></script>
   <script src="js/draw.js" defer></script>

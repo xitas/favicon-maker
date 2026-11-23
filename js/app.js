@@ -1,5 +1,5 @@
 /* Page UI: reads the form, keeps previews in sync, wires up downloads, and saves, restores, shares and undoes
-   designs. Depends on Svg, Fonts, Icons, Draw, Outputs, Design, Store, Checks, Dialog, Previews. */
+   designs. Depends on Svg, ImageTools, Fonts, Icons, Draw, Outputs, Design, Store, Checks, Dialog, Previews. */
 (function () {
   'use strict';
 
@@ -36,7 +36,7 @@
     borderWidth: $('borderWidth'), borderWidthOut: $('borderWidthOut'), borderColor: $('borderColor'),
     offsetX: $('offsetX'), offsetXOut: $('offsetXOut'), offsetY: $('offsetY'), offsetYOut: $('offsetYOut'), centerOffsets: $('centerOffsets'),
     darkBg2: $('darkBg2'), darkBg2Field: $('darkBg2Field'), darkBgLabel: $('darkBgLabel'),
-    checks: $('checks'), modeIcon: $('modeIcon'), iconPanel: $('iconPanel'), iconSearch: $('iconSearch'), iconCount: $('iconCount'),
+    checks: $('checks'), pasteImage: $('pasteImage'), modeIcon: $('modeIcon'), iconPanel: $('iconPanel'), iconSearch: $('iconSearch'), iconCount: $('iconCount'),
     iconGrid: $('iconGrid'), iconNote: $('iconNote'), iconColor: $('iconColor'),
     iconStroke: $('iconStroke'), iconStrokeOut: $('iconStrokeOut'), iconScale: $('iconScale'), iconScaleOut: $('iconScaleOut')
   };
@@ -551,6 +551,81 @@
       const rec = { id: Store.newId(), type: 'image/svg+xml', bytes: new TextEncoder().encode(clean.standalone), name: file.name };
       return showImage(new Blob([clean.standalone], { type: 'image/svg+xml' }), file.name, clean, rec);
     }, () => setNote('This image could not be read. Try a PNG or JPG.', true)).then((ok) => { if (ok) onChange(null); });
+  }
+
+  /** Use SVG code (pasted as text) as the image, after cleaning it like an uploaded file. */
+  function loadSvgText(text, name) {
+    const file = new File([text], name || 'Pasted SVG.svg', { type: 'image/svg+xml' });
+    loadFile(file);
+  }
+
+  /** Show where the person is looking: in the Image section when it is open, otherwise at the top. */
+  function imageNote(text, isError) {
+    if (mode === 'image') setNote(text, isError);
+    else setAppNote(text, isError);
+  }
+
+  /**
+   * Act on what a paste or drop holds: an image or SVG code becomes the image (switching to Image mode),
+   * and a link alone gets an explanation, since the page never downloads anything.
+   * Returns true when it handled something.
+   */
+  function useTransfer(parts) {
+    const r = ImageTools.classify(parts);
+    if (r.kind === 'file') {
+      if (mode !== 'image') setMode('image');
+      const file = r.file;
+      const named = /^image\.\w+$/i.test(file.name || '') || !file.name ? new File([file], 'Pasted image.' + (file.type.split('/')[1] || 'png').replace('svg+xml', 'svg').replace('jpeg', 'jpg'), { type: file.type }) : file;
+      loadFile(named);
+      return true;
+    }
+    if (r.kind === 'svg') {
+      if (mode !== 'image') setMode('image');
+      loadSvgText(r.text, 'Pasted SVG.svg');
+      return true;
+    }
+    if (r.kind === 'address') {
+      imageNote(r.message, true);
+      return true;
+    }
+    return false;
+  }
+
+  function transferParts(dt) {
+    if (!dt) return { files: [] };
+    const get = (type) => { try { return dt.getData(type) || ''; } catch (e) { return ''; } };
+    return { files: Array.from(dt.files || []), text: get('text/plain'), html: get('text/html'), uriList: get('text/uri-list') };
+  }
+
+  /** Ctrl/⌘+V outside text fields pastes an image. */
+  function onPaste(e) {
+    if (isTextField(e.target)) return;
+    if (useTransfer(transferParts(e.clipboardData))) e.preventDefault();
+  }
+
+  /** The Paste image button: read the clipboard with the Clipboard API, where the browser allows it. */
+  async function pasteFromButton() {
+    if (!navigator.clipboard || typeof navigator.clipboard.read !== 'function') {
+      setNote('This browser can’t read the clipboard from a button. Press Ctrl+V (⌘V on a Mac) instead.', true);
+      return;
+    }
+    const parts = { files: [], text: '', html: '', uriList: '' };
+    try {
+      const items = await navigator.clipboard.read();
+      for (const item of items) {
+        for (const type of item.types) {
+          const blob = await item.getType(type);
+          if (/^image\//.test(type)) parts.files.push(new File([blob], 'image.' + type.split('/')[1], { type }));
+          else if (type === 'text/plain') parts.text = await blob.text();
+          else if (type === 'text/html') parts.html = await blob.text();
+          else if (type === 'text/uri-list') parts.uriList = await blob.text();
+        }
+      }
+    } catch (e) {
+      setNote('The clipboard could not be read. Allow it if the browser asks, or press Ctrl+V (⌘V on a Mac).', true);
+      return;
+    }
+    if (!useTransfer(parts)) setNote('There’s no image on the clipboard. Copy an image or SVG code first.', true);
   }
 
   /** Show an image. Resolves true once it is loaded and in use. */
@@ -1144,8 +1219,18 @@
 
     el.file.addEventListener('change', (e) => { loadFile(e.target.files && e.target.files[0]); });
     ['dragenter', 'dragover'].forEach((t) => el.drop.addEventListener(t, (e) => { e.preventDefault(); el.drop.classList.add('over'); }));
-    ['dragleave', 'drop'].forEach((t) => el.drop.addEventListener(t, (e) => { e.preventDefault(); el.drop.classList.remove('over'); }));
-    el.drop.addEventListener('drop', (e) => { loadFile(e.dataTransfer && e.dataTransfer.files[0]); });
+    ['dragleave', 'drop'].forEach((t) => el.drop.addEventListener(t, () => { el.drop.classList.remove('over'); }));
+    // Drops anywhere on the page: an image file or SVG becomes the image; a link from another tab is
+    // explained. Without this, the browser would open the dropped file or link instead of the page.
+    document.addEventListener('dragover', (e) => { if (!isTextField(e.target)) e.preventDefault(); });
+    document.addEventListener('drop', (e) => {
+      const parts = transferParts(e.dataTransfer);
+      if (isTextField(e.target) && !parts.files.length) return;
+      e.preventDefault();
+      useTransfer(parts);
+    });
+    document.addEventListener('paste', onPaste);
+    el.pasteImage.addEventListener('click', pasteFromButton);
 
     const zipEntry = { button: el.zip, busy: false, note: el.filesNote };
     downloads.push(zipEntry);

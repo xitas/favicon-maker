@@ -646,6 +646,9 @@ canvas.real { display: block; flex: none; }
 .icon-option[aria-selected="true"] { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
 .icon-grid:empty { display: none; }
 
+/* Image source extras */
+.image-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+
 /* Undo, redo and reset */
 .toolbar { display: flex; flex-wrap: wrap; gap: 6px; }
 .btn.small { height: 30px; padding: 0 10px; font-size: 12px; }

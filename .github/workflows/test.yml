@@ -40,8 +40,8 @@ jobs:
             files: tests/browser/styles.test.js tests/browser/same-everywhere.test.js
           - group: icons, maskable and previews
             files: tests/browser/icons.test.js tests/browser/maskable.test.js tests/browser/previews.test.js tests/browser/checks.test.js
-          - group: svg and shrinking
-            files: tests/browser/svg.test.js tests/browser/shrink.test.js
+          - group: svg, shrinking and paste
+            files: tests/browser/svg.test.js tests/browser/shrink.test.js tests/browser/paste.test.js
           - group: app and fonts
             files: tests/browser/app.test.js tests/browser/fonts.test.js
     steps:
@@ -70,7 +70,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: |
-          grouped="tests/browser/designs.test.js tests/browser/styles.test.js tests/browser/same-everywhere.test.js tests/browser/icons.test.js tests/browser/maskable.test.js tests/browser/previews.test.js tests/browser/checks.test.js tests/browser/svg.test.js tests/browser/shrink.test.js tests/browser/app.test.js tests/browser/fonts.test.js"
+          grouped="tests/browser/designs.test.js tests/browser/styles.test.js tests/browser/same-everywhere.test.js tests/browser/icons.test.js tests/browser/maskable.test.js tests/browser/previews.test.js tests/browser/checks.test.js tests/browser/svg.test.js tests/browser/shrink.test.js tests/browser/paste.test.js tests/browser/app.test.js tests/browser/fonts.test.js"
           for f in tests/browser/*.test.js; do
             case " $grouped " in *" $f "*) ;; *) echo "::error::$f is not in a browser test group"; exit 1 ;; esac
           done
