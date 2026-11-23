@@ -89,6 +89,7 @@ function saveImages(name, size, a, b) {
   fs.writeFileSync(base + '-diff.png', pngOf(diffImage(a, b), k));
 }
 
+// Bold, as most icons are: it also catches a browser faking a bold emoji (Firefox on Linux did).
 function settingsFor(font, text, emoji) {
   return {
     mode: 'text', text, font, bold: true, emoji, textScale: 70,

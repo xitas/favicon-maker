@@ -47,15 +47,19 @@ function checkZipContents(files, { svg = true } = {}) {
   return { manifest };
 }
 
-/** Record every string the page draws with fillText. */
+/** Record the text of every icon the page draws (letters are drawn from outlines, so not with fillText). */
 async function recordText(page) {
   await page.evaluate(() => {
-    const original = CanvasRenderingContext2D.prototype.fillText;
     window.__drawnText = [];
-    CanvasRenderingContext2D.prototype.fillText = function (text, ...rest) {
-      window.__drawnText.push(text);
-      return original.call(this, text, ...rest);
-    };
+    for (const name of ['icon', 'render']) {
+      const original = Draw[name];
+      Draw[name] = function (...args) {
+        const s = name === 'icon' ? args[2] : args[1];
+        const t = s && s.mode === 'text' ? Draw.textLayout(64, s) : null;
+        if (t) window.__drawnText.push(t.text);
+        return original.apply(this, args);
+      };
+    }
   });
 }
 

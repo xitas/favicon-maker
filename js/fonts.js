@@ -321,7 +321,9 @@ const Fonts = (() => {
   function loadEmoji() {
     if (!emojiPromise) {
       emojiState = 'loading';
-      const face = new FontFace(EMOJI_FAMILY, 'url("' + BASE + EMOJI_FILE + '")', { display: 'block' });
+      // Declared for every weight: with bold text, Firefox on Linux would otherwise fake a bold emoji
+      // (thicker, and clipped at its edges). Emoji have no bold.
+      const face = new FontFace(EMOJI_FAMILY, 'url("' + BASE + EMOJI_FILE + '")', { display: 'block', weight: '1 1000' });
       emojiPromise = face.load()
         .then(() => { document.fonts.add(face); return emojiDrawsInColor(); })
         .catch(() => false)
@@ -334,6 +336,7 @@ const Fonts = (() => {
    * Load what the settings need before drawing: the chosen font in the chosen weight, for the characters
    * in the text, and the bundled emoji font if chosen. Resolves to the settings to draw with: `font` is a
    * known key, and `emoji` is 'system' when the bundled emoji font can't be used here.
+   * The font's glyph outlines are loaded too: the icon's letters are drawn from them (see Draw).
    * Rejects when the font can't be loaded, so nothing is drawn or saved with a fallback font.
    */
   async function prepare(s) {
@@ -343,20 +346,19 @@ const Fonts = (() => {
     register(out.font);
     const text = String(out.text || '').normalize('NFC');
     const spec = weight(out.font, out.bold) + ' 32px "' + family(out.font) + '"';
-    let faces;
-    try {
-      faces = await document.fonts.load(spec, text || ' ');
-    } catch (e) {
-      faces = null;
-    }
     const needed = text.length > 0 && Array.from(text).some((ch) => has(out.font, ch.codePointAt(0)));
-    if (needed && (!faces || faces.length === 0 || !document.fonts.check(spec, text))) {
+    // The font (for measuring, and for drawing what isn't drawn from outlines) and its outlines, together.
+    const [faces, outlines] = await Promise.all([
+      document.fonts.load(spec, text || ' ').catch(() => null),
+      needed ? loadGlyphs(out.font, weight(out.font, out.bold)).catch(() => null) : null
+    ]);
+    if (needed && (!faces || faces.length === 0 || !document.fonts.check(spec, text) || !outlines)) {
       throw new Error('the ' + info(out.font).label + ' font could not be loaded');
     }
     return out;
   }
 
-  /* ---------- Glyph outlines, for favicon.svg ---------- */
+  /* ---------- Glyph outlines: the icon's letters, on the canvas and in favicon.svg ---------- */
 
   const glyphStore = {};
   const glyphLoads = {};
@@ -379,7 +381,7 @@ const Fonts = (() => {
 
   /**
    * Load the glyph outlines of a font and weight once, with a <script> tag (which works from file://,
-   * unlike fetch). Only needed when favicon.svg is built.
+   * unlike fetch).
    */
   function loadGlyphs(name, w) {
     const id = key(name) + '|' + w;

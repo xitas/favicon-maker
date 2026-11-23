@@ -153,7 +153,7 @@ The icon paths inside `site.webmanifest` are relative to the manifest, so they w
 
 ## Fonts
 
-The icon fonts are bundled in `assets/fonts/`, trimmed to Latin and Latin Extended characters and to their kerning (no ligatures or alternate letter forms), so each character is always one outline and `favicon.svg` matches the PNGs. A font is downloaded only when you choose it (345 KB for all eight; 30 to 105 KB each). Its glyph outlines (90 to 390 KB per weight) are loaded only when `favicon.svg` is made. Each folder has the font's license next to it.
+The icon fonts are bundled in `assets/fonts/`, trimmed to Latin and Latin Extended characters and to their kerning (no ligatures or alternate letter forms), so each character is always one outline and `favicon.svg` matches the PNGs. A font is downloaded only when you choose it (345 KB for all eight; 30 to 105 KB each). The icon's letters are drawn from the font's own glyph outlines (90 to 390 KB per weight, loaded with the font), not by the browser's text engine, so they come out the same in every browser and on every system, and `favicon.svg` uses the same outlines. Emoji, and characters the bundled fonts don't have, are drawn by the browser. Each folder has the font's license next to it.
 
 | Style | Font | Designer | License |
 |---|---|---|---|

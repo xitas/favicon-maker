@@ -34,6 +34,41 @@ test('glyphPath: after z, the next move starts from the start of the last contou
   assert.equal(Svg.glyphPath('m10 10l10 0l0 10l-10 0zm30 0l10 0z', 1, 0, 0), 'M10 -10L20 -10L20 -20L10 -20ZM40 -10L50 -10Z');
 });
 
+test('glyphBounds: exact bounds of lines and curves, y down', () => {
+  const plain = (b) => b && { ...b };
+  // A square from (10, 20) to (30, 50) in font units (y up): y down, top is -50.
+  assert.deepEqual(plain(Svg.glyphBounds('m10 20l20 0l0 30l-20 0z')), { left: 10, top: -50, right: 30, bottom: -20 });
+  // A quadratic arch from (0, 0) to (100, 0) with its control point at (50, 100) peaks at y = 50.
+  assert.deepEqual(plain(Svg.glyphBounds('m0 0q50 100 100 0z')), { left: 0, top: -50, right: 100, bottom: -0 });
+  // A cubic with control points (0, 100) and (100, 100) peaks at y = 75; its control points reach 100.
+  assert.deepEqual(plain(Svg.glyphBounds('m0 0c0 100 100 100 100 0z')), { left: 0, top: -75, right: 100, bottom: -0 });
+  // A cubic that bulges sideways past its end points: from (0, 0) to (0, 100) through x = 100 controls.
+  assert.equal(Svg.glyphBounds('m0 0c100 0 100 100 0 100z').right, 75);
+  assert.equal(Svg.glyphBounds(''), null);
+  assert.throws(() => Svg.glyphBounds('m1 1x'), /Bad glyph data/);
+});
+
+test('glyphBounds of real glyphs lies within their control points', () => {
+  const { Fonts: F } = loadScripts();
+  const ctx = vm.createContext({ Fonts: F });
+  const file = path.join(ROOT, 'assets', 'fonts', F.info('serif').glyphs['400']);
+  vm.runInContext(fs.readFileSync(file, 'utf8'), ctx, { filename: file });
+  const data = F.glyphs('serif', 400);
+  for (const ch of 'AgQ@&Sß') {
+    const g = data.glyphs[ch.codePointAt(0)];
+    const b = Svg.glyphBounds(g);
+    const nums = Svg.glyphPath(g, 1, 0, 0).match(/-?[\d.]+/g).map(Number);
+    const ends = [];
+    for (let i = 0; i + 1 < nums.length; i += 2) ends.push([nums[i], nums[i + 1]]);
+    const xs = ends.map((p) => p[0]);
+    const ys = ends.map((p) => p[1]);
+    assert.ok(b.right - b.left > 0 && b.bottom - b.top > 0, ch);
+    // A curve stays inside its control points, so the bounds do too.
+    assert.ok(b.left >= Math.min(...xs) - 1e-6 && b.right <= Math.max(...xs) + 1e-6, `${ch}: within the control points`);
+    assert.ok(b.top >= Math.min(...ys) - 1e-6 && b.bottom <= Math.max(...ys) + 1e-6, `${ch}: within the control points`);
+  }
+});
+
 test('glyphPath rounds to 2 decimals and rejects bad data', () => {
   assert.equal(Svg.glyphPath('m1 1z', 1 / 3, 0, 0), 'M0.33 -0.33Z');
   assert.throws(() => Svg.glyphPath('m1 1x', 1, 0, 0), /Bad glyph data/);

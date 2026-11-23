@@ -143,17 +143,18 @@ for (const target of targets()) {
       const { context, page } = await openApp(browser, url);
       try {
         const used = await page.evaluate(async () => {
-          // Record the font in use at each fillText call (Draw restores the canvas state afterwards).
-          const original = CanvasRenderingContext2D.prototype.fillText;
+          // Record the font the letters are placed with (they are drawn from that font's outlines).
+          const original = CanvasRenderingContext2D.prototype.measureText;
           let lastFont = '';
-          CanvasRenderingContext2D.prototype.fillText = function (...args) { lastFont = this.font; return original.apply(this, args); };
+          CanvasRenderingContext2D.prototype.measureText = function (...args) { lastFont = this.font; return original.apply(this, args); };
           const out = {};
-          for (const font of ['sans', 'serif', 'mono', 'display', 'something-old']) {
-            const s = await Fonts.prepare({ mode: 'text', text: 'A', font, bold: true, emoji: 'system', textScale: 70, fg: '#fff', bg: '#000', radius: 0 });
+          for (const [i, font] of ['sans', 'serif', 'mono', 'display', 'something-old'].entries()) {
+            // Text the page hasn't drawn yet, so its layout isn't cached.
+            const s = await Fonts.prepare({ mode: 'text', text: 'Qz' + i, font, bold: true, emoji: 'system', textScale: 70, fg: '#fff', bg: '#000', radius: 0 });
             Draw.render(32, s);
             out[font] = [s.font, lastFont];
           }
-          CanvasRenderingContext2D.prototype.fillText = original;
+          CanvasRenderingContext2D.prototype.measureText = original;
           return out;
         });
         assert.deepEqual(Object.fromEntries(Object.entries(used).map(([k, v]) => [k, v[0]])),

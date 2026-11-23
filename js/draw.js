@@ -1,5 +1,5 @@
 /* Icon drawing on <canvas>. Pure: everything it needs comes in through `settings`. Depends on Svg, ImageTools, Fonts, Icons, Shrink.
-   Fonts must already be loaded (see Fonts.prepare), so nothing is drawn with a fallback font. */
+   Fonts and their outlines must already be loaded (see Fonts.prepare), so nothing is drawn with a fallback font. */
 const Draw = (() => {
   'use strict';
 
@@ -24,34 +24,112 @@ const Draw = (() => {
     return Math.round(px / step) * step;
   }
 
-  const INK_REF = 400; // font size used to find the ink box
+  const INK_REF = 400; // font size used to find the ink box of what the browser draws
+  // Font size used to measure where letters go. Chromium on Linux rounds text widths to whole pixels (and
+  // hints them at small sizes); at this size the rounding is under 0.0003 em.
+  const MEASURE_REF = 2000;
+  const INVISIBLE = /^[\p{Cc}\p{Cf}]+$/u;
+  const pieceCache = new Map();
+  const shapeCache = new Map();
   const inkCache = new Map();
 
-  /**
-   * The ink box of `text`, in ems, relative to its start point on the alphabetic baseline: left, right,
-   * top (negative, above the baseline) and bottom. Found from pixels, not from the browser's text
-   * metrics, because browsers round those differently. Null when nothing is drawn (only spaces).
-   */
-  function inkBox(text, s) {
-    const font = Fonts.css(s, INK_REF);
-    const cacheKey = font + '\n' + text;
-    if (inkCache.has(cacheKey)) return inkCache.get(cacheKey);
+  /** The text's user-perceived characters, or its code points where Intl.Segmenter is missing. */
+  function graphemes(text) {
+    if (typeof Intl !== 'undefined' && Intl.Segmenter) {
+      return Array.from(new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(text), (g) => g.segment);
+    }
+    return Array.from(text);
+  }
 
-    const canvas = document.createElement('canvas');
-    const probe = canvas.getContext('2d');
-    probe.font = font;
-    const advance = probe.measureText(text).width;
+  /**
+   * How the text is drawn, piece by piece. A character the icon font has is drawn from the font's own
+   * outline (the .glyphs.js data favicon.svg uses), so every browser on every system draws the same shape:
+   * { text, glyph, x }. Anything else (emoji, or a script the font doesn't cover) is drawn by the browser
+   * in runs, so letters that join stay joined: { text, x }. `x` is in ems from the start of the text,
+   * measured by the browser at a large size: that keeps the font's kerning, without each engine's
+   * rounding and hinting at small sizes.
+   * Throws when the outlines are needed but not loaded (see Fonts.prepare): nothing is drawn with a fallback.
+   */
+  function pieces(text, s) {
+    const font = Fonts.key(s.font);
+    const w = Fonts.weight(font, s.bold);
+    const css = Fonts.css(s, MEASURE_REF);
+    const cacheKey = css + '\n' + text;
+    if (pieceCache.has(cacheKey)) return pieceCache.get(cacheKey);
+
+    const data = Fonts.glyphs(font, w);
+    const list = [];
+    for (const g of graphemes(text)) {
+      const own = Array.from(g).length === 1 && Fonts.has(font, g.codePointAt(0)) && !INVISIBLE.test(g);
+      if (own && !data) throw new Error('the outlines of the ' + Fonts.label(font) + ' font are not loaded');
+      const glyph = own ? data.glyphs[g.codePointAt(0)] : undefined;
+      const last = list[list.length - 1];
+      if (glyph !== undefined) list.push({ text: g, glyph });
+      else if (last && last.glyph === undefined) last.text += g;
+      else list.push({ text: g });
+    }
+
+    // Where each piece starts: the width of the text up to and including it, minus its own width.
+    const ctx = document.createElement('canvas').getContext('2d');
+    ctx.font = css;
+    let prefix = '';
+    for (const p of list) {
+      prefix += p.text;
+      p.x = (ctx.measureText(prefix).width - ctx.measureText(p.text).width) / MEASURE_REF;
+    }
+    const out = { font, weight: w, upm: data ? data.upm : 1000, list };
+    if (pieceCache.size > 200) pieceCache.clear();
+    pieceCache.set(cacheKey, out);
+    return out;
+  }
+
+  /** A glyph outline as a Path2D in font units (y down), made once. */
+  function glyphShape(p, glyph) {
+    const id = p.font + '|' + p.weight + '|' + glyph;
+    let shape = shapeCache.get(id);
+    if (!shape) {
+      shape = new Path2D(Svg.glyphPath(glyph, 1, 0, 0));
+      if (shapeCache.size > 2000) shapeCache.clear();
+      shapeCache.set(id, shape);
+    }
+    return shape;
+  }
+
+  /** Draw the pieces in the current fill style, starting on the alphabetic baseline at (x, y), at `px` pixels. */
+  function drawPieces(ctx, p, s, x, y, px) {
+    const k = px / p.upm;
+    for (const piece of p.list) {
+      if (piece.glyph !== undefined) {
+        ctx.save();
+        ctx.translate(x + piece.x * px, y);
+        ctx.scale(k, k);
+        ctx.fill(glyphShape(p, piece.glyph));
+        ctx.restore();
+      } else {
+        ctx.font = Fonts.css(s, px);
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'alphabetic';
+        ctx.fillText(piece.text, x + piece.x * px, y);
+      }
+    }
+  }
+
+  /** The ink box of the pieces drawn by the browser (not from outlines), from pixels, in ems; null if none. */
+  function runsInkBox(p, s) {
+    const runs = { font: p.font, weight: p.weight, upm: p.upm, list: p.list.filter((piece) => piece.glyph === undefined) };
+    if (!runs.list.length) return null;
+    const last = runs.list[runs.list.length - 1];
+    const probe = document.createElement('canvas').getContext('2d');
+    probe.font = Fonts.css(s, INK_REF);
     const margin = INK_REF;
-    canvas.width = Math.ceil(advance + margin * 2);
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.ceil((last.x * INK_REF) + probe.measureText(last.text).width + margin * 2);
     canvas.height = INK_REF * 3;
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
-    ctx.font = font;
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'alphabetic';
     ctx.fillStyle = '#000';
     const ox = margin;
     const oy = INK_REF * 2;
-    ctx.fillText(text, ox, oy);
+    drawPieces(ctx, runs, s, ox, oy, INK_REF);
 
     const { width, height } = canvas;
     const data = ctx.getImageData(0, 0, width, height).data;
@@ -70,12 +148,36 @@ const Draw = (() => {
         }
       }
     }
-    const box = right < 0 ? null : {
+    return right < 0 ? null : {
       left: (left - ox) / INK_REF,
       right: (right + 1 - ox) / INK_REF,
       top: (top - oy) / INK_REF,
       bottom: (bottom + 1 - oy) / INK_REF
     };
+  }
+
+  /**
+   * The ink box of `text`, in ems, relative to its start point on the alphabetic baseline: left, right,
+   * top (negative, above the baseline) and bottom. Exact for letters drawn from outlines; found from pixels
+   * for anything the browser draws. Null when nothing is drawn (only spaces).
+   */
+  function inkBox(text, s) {
+    const cacheKey = Fonts.css(s, INK_REF) + '\n' + text;
+    if (inkCache.has(cacheKey)) return inkCache.get(cacheKey);
+    const p = pieces(text, s);
+    const boxes = [runsInkBox(p, s)];
+    for (const piece of p.list) {
+      if (piece.glyph === undefined) continue;
+      const b = Svg.glyphBounds(piece.glyph);
+      if (b) boxes.push({ left: piece.x + b.left / p.upm, right: piece.x + b.right / p.upm, top: b.top / p.upm, bottom: b.bottom / p.upm });
+    }
+    const found = boxes.filter(Boolean);
+    const box = found.length ? {
+      left: Math.min(...found.map((b) => b.left)),
+      right: Math.max(...found.map((b) => b.right)),
+      top: Math.min(...found.map((b) => b.top)),
+      bottom: Math.max(...found.map((b) => b.bottom))
+    } : null;
     if (inkCache.size > 200) inkCache.clear();
     inkCache.set(cacheKey, box);
     return box;
@@ -109,11 +211,21 @@ const Draw = (() => {
   function drawText(ctx, area, s) {
     const t = textLayout(area.size, s);
     if (!t) return;
-    ctx.font = Fonts.css(s, t.px);
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'alphabetic';
     ctx.fillStyle = s.fg;
-    ctx.fillText(t.text, area.x + t.x, area.y + t.y);
+    drawPieces(ctx, pieces(t.text, s), s, area.x + t.x, area.y + t.y, t.px);
+  }
+
+  /**
+   * The text in a square of `size` as one SVG path, moved by (dx, dy): the same outlines at the same
+   * places as on the canvas. Null when some of it is drawn by the browser (emoji, other scripts).
+   */
+  function textOutline(size, s, dx, dy) {
+    const t = textLayout(size, s);
+    if (!t) return '';
+    const p = pieces(t.text, s);
+    if (p.list.some((piece) => piece.glyph === undefined)) return null;
+    const scale = t.px / p.upm;
+    return p.list.map((piece) => Svg.glyphPath(piece.glyph, scale, t.x + dx + piece.x * t.px, t.y + dy)).join('');
   }
 
   /**
@@ -352,7 +464,7 @@ const Draw = (() => {
   }
 
   return {
-    icon, render, snapSize, textLayout, imageLayout, iconLayout, borderPx, offsetPx,
+    icon, render, snapSize, textLayout, textOutline, imageLayout, iconLayout, borderPx, offsetPx,
     maskArea, inSafeZone, maskShape, SAFE_ZONE_RADIUS, MASK_PAD_DEFAULT
   };
 })();

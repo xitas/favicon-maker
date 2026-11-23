@@ -71,6 +71,90 @@ const Svg = (() => {
     return out.join('');
   }
 
+  /**
+   * The exact bounds of a compact glyph outline, curves included (not just their control points), in font
+   * units with y down as glyphPath draws it at scale 1: { left, top, right, bottom }. Null for an empty glyph.
+   */
+  function glyphBounds(encoded) {
+    const source = String(encoded);
+    if (!/^(?:[mlqcz]|-?\d+|\s)*$/.test(source)) throw new Error('Bad glyph data: ' + source.slice(0, 20));
+    const tokens = source.match(/[mlqcz]|-?\d+/g) || [];
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    const add = (px, py) => {
+      if (px < minX) minX = px;
+      if (px > maxX) maxX = px;
+      if (py < minY) minY = py;
+      if (py > maxY) maxY = py;
+    };
+    // Where a curve's coordinate turns back, for t strictly between 0 and 1.
+    const quadTurns = (a, b, c) => {
+      const d = a - 2 * b + c;
+      return d === 0 ? [] : [(a - b) / d];
+    };
+    const cubicTurns = (a, b, c, d) => {
+      // Derivative / 3: (b - a)(1-t)^2 + 2(c - b)t(1-t) + (d - c)t^2 = A t^2 + B t + C
+      const A = -a + 3 * b - 3 * c + d;
+      const B = 2 * (a - 2 * b + c);
+      const C = b - a;
+      if (Math.abs(A) < 1e-12) return B === 0 ? [] : [-C / B];
+      const disc = B * B - 4 * A * C;
+      if (disc < 0) return [];
+      const r = Math.sqrt(disc);
+      return [(-B + r) / (2 * A), (-B - r) / (2 * A)];
+    };
+    let x = 0;
+    let y = 0;
+    let startX = 0;
+    let startY = 0;
+    let i = 0;
+    while (i < tokens.length) {
+      const cmd = tokens[i++];
+      const take = (n) => tokens.slice(i, (i += n)).map(Number);
+      if (cmd === 'm' || cmd === 'l') {
+        const [dx, dy] = take(2);
+        x += dx;
+        y += dy;
+        if (cmd === 'm') { startX = x; startY = y; }
+        add(x, y);
+      } else if (cmd === 'q') {
+        const [ax, ay, bx, by] = take(4);
+        const p = [[x, y], [x + ax, y + ay], [x + bx, y + by]];
+        for (const axis of [0, 1]) {
+          for (const t of quadTurns(p[0][axis], p[1][axis], p[2][axis])) {
+            if (t > 0 && t < 1) {
+              const u = 1 - t;
+              add(...[0, 1].map((k) => u * u * p[0][k] + 2 * u * t * p[1][k] + t * t * p[2][k]));
+            }
+          }
+        }
+        [x, y] = p[2];
+        add(x, y);
+      } else if (cmd === 'c') {
+        const [ax, ay, bx, by, cx, cy] = take(6);
+        const p = [[x, y], [x + ax, y + ay], [x + bx, y + by], [x + cx, y + cy]];
+        for (const axis of [0, 1]) {
+          for (const t of cubicTurns(p[0][axis], p[1][axis], p[2][axis], p[3][axis])) {
+            if (t > 0 && t < 1) {
+              const u = 1 - t;
+              add(...[0, 1].map((k) => u * u * u * p[0][k] + 3 * u * u * t * p[1][k] + 3 * u * t * t * p[2][k] + t * t * t * p[3][k]));
+            }
+          }
+        }
+        [x, y] = p[3];
+        add(x, y);
+      } else if (cmd === 'z') {
+        x = startX;
+        y = startY;
+      } else {
+        throw new Error('Bad glyph data: ' + cmd);
+      }
+    }
+    return maxX < minX ? null : { left: minX, top: -maxY, right: maxX, bottom: -minY };
+  }
+
   /* ---------- Shapes and gradients ---------- */
 
   const SHAPES = ['rounded', 'circle', 'squircle', 'square'];
@@ -376,5 +460,5 @@ const Svg = (() => {
     return { standalone, inner, rootAttrs, viewBox };
   }
 
-  return { glyphPath, icon, sanitize, cleanCss, num, color, shapePath, gradientLine, radialRadius, SHAPES };
+  return { glyphPath, glyphBounds, icon, sanitize, cleanCss, num, color, shapePath, gradientLine, radialRadius, SHAPES };
 })();

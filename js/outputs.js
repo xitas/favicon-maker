@@ -144,27 +144,12 @@ const Outputs = (() => {
     return file.kind !== 'svg' || svgStatus(s).ok;
   }
 
-  /** The text as outlines: one path, placed exactly where the canvas draws the text. */
+  /** The text as outlines: one path, the same outlines at the same places as the PNG files. */
   async function textPath(s) {
-    const t = Draw.textLayout(SVG_SIZE, s);
-    if (!t) return '';
+    await Fonts.loadGlyphs(s.font, Fonts.weight(s.font, s.bold));
     const shift = Draw.offsetPx(SVG_SIZE, s);
-    const w = Fonts.weight(s.font, s.bold);
-    const data = await Fonts.loadGlyphs(s.font, w);
-    // Where each character starts: the width of the text up to and including it, minus its own width.
-    // That keeps the browser's kerning, so the outlines line up with the canvas glyph for glyph.
-    const ctx = document.createElement('canvas').getContext('2d');
-    ctx.font = Fonts.css(s, t.px);
-    const scale = t.px / data.upm;
-    let prefix = '';
-    let d = '';
-    for (const ch of Array.from(t.text)) {
-      prefix += ch;
-      const x = ctx.measureText(prefix).width - ctx.measureText(ch).width;
-      const glyph = data.glyphs[ch.codePointAt(0)];
-      if (glyph === undefined) throw new Error(SVG_NOTES.chars);
-      d += Svg.glyphPath(glyph, scale, t.x + shift.x + x, t.y + shift.y);
-    }
+    const d = Draw.textOutline(SVG_SIZE, s, shift.x, shift.y);
+    if (d === null) throw new Error(SVG_NOTES.chars);
     return d;
   }
 
