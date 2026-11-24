@@ -17,12 +17,12 @@
 'use strict';
 
 // <files> written by tools/build-sw.js; do not edit by hand
-var VERSION = "f77207cfb12d";
+var VERSION = "5637bb47755e";
 var CORE = {
   "index.html": "76e68dc79f28c845",
   "manifest.webmanifest": "fe83f065276dac97",
   "css/style.css": "f0fdcf7ea16ac695",
-  "js/app.js": "829b79d65c18b907",
+  "js/app.js": "1f353876d8e05a9d",
   "js/checks.js": "bb9bef75791567e5",
   "js/design.js": "6c8ab277a811f8c1",
   "js/dialog.js": "eeedbea06092c76b",

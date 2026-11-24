@@ -1267,12 +1267,25 @@
   /** Ask the active service worker what it keeps: { version, files: [{ file, bytes, cached }] }. */
   async function offlineStatus() {
     const reg = await navigator.serviceWorker.ready;
-    return new Promise((resolve, reject) => {
+    // A busy device can take a while to answer: wait, and ask once more before giving up.
+    const ask = (ms) => new Promise((resolve, reject) => {
       const channel = new MessageChannel();
-      const timer = setTimeout(() => reject(new Error('no answer')), 5000);
+      const timer = setTimeout(() => reject(new Error('no answer')), ms);
       channel.port1.onmessage = (e) => { clearTimeout(timer); resolve(e.data); };
       reg.active.postMessage({ type: 'status' }, [channel.port2]);
     });
+    try {
+      return await ask(10000);
+    } catch (e) {
+      return ask(20000);
+    }
+  }
+
+  /** The offline section when everything is kept. */
+  function showAllKept(total) {
+    el.offlineStatus.textContent = 'Everything is available offline: every font, the emoji and the icons.';
+    el.offlineAll.textContent = 'Make everything available offline (' + formatBytes(total) + ')';
+    el.offlineAll.disabled = true;
   }
 
   async function showOfflineStatus() {
@@ -1281,11 +1294,13 @@
     const total = st.files.reduce((n, f) => n + f.bytes, 0);
     const kept = st.files.filter((f) => f.cached).reduce((n, f) => n + f.bytes, 0);
     const all = kept === total;
-    el.offlineStatus.textContent = all
-      ? 'Everything is available offline: every font, the emoji and the icons.'
-      : 'Fonts, emoji and icons are saved for offline use the first time you use them. ' + formatBytes(kept) + ' of ' + formatBytes(total) + ' saved so far.';
+    if (all) {
+      showAllKept(total);
+      return st;
+    }
+    el.offlineStatus.textContent = 'Fonts, emoji and icons are saved for offline use the first time you use them. ' + formatBytes(kept) + ' of ' + formatBytes(total) + ' saved so far.';
     el.offlineAll.textContent = 'Make everything available offline (' + formatBytes(total) + ')';
-    el.offlineAll.disabled = all || !!offlineAbort;
+    el.offlineAll.disabled = !!offlineAbort;
     return st;
   }
 
@@ -1295,6 +1310,8 @@
     if (!st) return;
     const todo = st.files.filter((f) => !f.cached);
     const total = todo.reduce((n, f) => n + f.bytes, 0);
+    const everything = st.files.reduce((n, f) => n + f.bytes, 0);
+    let complete = false;
     let done = 0;
     offlineAbort = new AbortController();
     el.offlineAll.disabled = true;
@@ -1312,6 +1329,7 @@
         el.offlineProgress.setAttribute('aria-valuetext', formatBytes(done) + ' of ' + formatBytes(total));
       }
       setStatus(el.offlineNote, 'Everything is available offline.', false);
+      complete = true;
     } catch (e) {
       setStatus(el.offlineNote, offlineAbort.signal.aborted
         ? 'Cancelled. What was already downloaded stays available offline.'
@@ -1320,7 +1338,10 @@
       offlineAbort = null;
       el.offlineCancel.hidden = true;
       el.offlineProgress.hidden = true;
-      await showOfflineStatus();
+      // Every file came back through the service worker, which keeps each one before answering: no need to
+      // ask it again (a busy device can be slow to answer, and the status would look out of date).
+      if (complete) showAllKept(everything);
+      else await showOfflineStatus();
     }
   }
 
