@@ -2,7 +2,12 @@
    The interface is strictly monochrome. Every color lives in the variables below; the only color on the page
    comes from the icon canvases, which show the user's own design. */
 
-/* ---------- Color palette: light mode (white background) ---------- */
+/* ---------- Color palette ----------
+   The theme is set on <html> as data-theme="light" or "dark" by the inline script in index.html's <head>,
+   before the page draws: System (the default) follows prefers-color-scheme there, live; Light and Dark are
+   the person's choice (see js/theme.js). Light is the base; dark changes what differs. */
+
+/* Light (white background) */
 :root {
   --bg: #ffffff;           /* page */
   --surface: #ffffff;      /* panels */
@@ -51,31 +56,26 @@
   color-scheme: light;
 }
 
-/* ---------- Color palette: dark mode (black background) ---------- */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #000000;
-    --surface: #0a0a0a;
-    --surface-2: #1a1a1a;
-    --fg: #f5f5f5;
-    --muted: #a3a3a3;      /* 7.3:1 on #1a1a1a */
-    --line: #2e2e2e;
-    --accent: #ffffff;
-    --accent-fg: #000000;
-    --accent-soft: #333333;
-    --ring: #8a8a8a;
-    --spinner: #8a8a8a;
-    --shine: rgb(128 128 128 / 0.35);
-    --glow: rgb(255 255 255 / 0.06);
-    --check-a: #1a1a1a;
-    --check-b: #262626;
-    --swatch-line: #6b6b6b; /* so black shows on black (3.9:1 on #000, 3.7:1 on panels) */
-    --shadow-color: 0 0 0;
-    --shadow: 0 1px 2px rgb(var(--shadow-color) / 0.5), 0 4px 16px rgb(var(--shadow-color) / 0.5);
-    --shadow-lift: 0 2px 4px rgb(var(--shadow-color) / 0.6), 0 12px 32px rgb(var(--shadow-color) / 0.7);
-    --shadow-small: 0 2px 6px rgb(var(--shadow-color) / 0.6);
-    color-scheme: dark;
-  }
+/* Dark (black background) */
+:root[data-theme="dark"] {
+  --bg: #000000;
+  --surface: #0a0a0a;
+  --surface-2: #1a1a1a;
+  --fg: #f5f5f5;
+  --muted: #a3a3a3;      /* 7.3:1 on #1a1a1a */
+  --line: #2e2e2e;
+  --accent: #ffffff;
+  --accent-fg: #000000;
+  --accent-soft: #333333;
+  --ring: #8a8a8a;
+  --glow: rgb(255 255 255 / 0.06);
+  --check-a: #1a1a1a;
+  --check-b: #262626;
+  --swatch-line: #6b6b6b; /* so black shows on black (3.9:1 on #000, 3.7:1 on panels) */
+  --shadow: 0 1px 2px rgb(var(--shadow-color) / 0.5), 0 4px 16px rgb(var(--shadow-color) / 0.5);
+  --shadow-lift: 0 2px 4px rgb(var(--shadow-color) / 0.6), 0 12px 32px rgb(var(--shadow-color) / 0.7);
+  --shadow-small: 0 2px 6px rgb(var(--shadow-color) / 0.6);
+  color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
@@ -107,7 +107,7 @@ body::before {
 .app { max-width: 1120px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
 
 /* Header */
-.top { display: flex; align-items: center; gap: 18px; }
+.top { display: flex; align-items: center; gap: 18px; position: relative; z-index: 20; } /* above the panels, for the theme menu */
 .top h1 { margin: 0; font-size: clamp(22px, 3vw, 28px); font-weight: 600; letter-spacing: -0.02em; text-wrap: balance; }
 .top p { margin: 4px 0 0; color: var(--muted); max-width: 68ch; }
 .hero-icon {
@@ -851,4 +851,34 @@ pre {
 @media (max-width: 480px) {
   .update-bar { left: 16px; right: 16px; transform: none; flex-wrap: wrap; }
   .update-bar span { flex: 1 1 100%; }
+}
+
+/* Theme menu (System, Light, Dark), at the top right of the header */
+.theme-picker { position: relative; margin-left: auto; align-self: flex-start; flex: none; }
+.theme-button { width: 34px; height: 34px; padding: 0; display: grid; place-items: center; }
+.theme-icon, .theme-menu svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.theme-icon { display: none; }
+.theme-button[data-choice="system"] .theme-icon[data-icon="system"],
+.theme-button[data-choice="light"] .theme-icon[data-icon="light"],
+.theme-button[data-choice="dark"] .theme-icon[data-icon="dark"] { display: block; }
+.theme-menu {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 40; min-width: 140px;
+  display: flex; flex-direction: column; gap: 2px; padding: 4px;
+  border: 1px solid var(--line); border-radius: 10px; background: var(--surface); box-shadow: var(--shadow-lift);
+}
+.theme-menu [role="menuitemradio"] {
+  display: flex; align-items: center; gap: 8px; width: 100%; height: 34px; padding: 0 10px;
+  border: 0; border-radius: 6px; background: transparent; color: var(--fg); text-align: left; font-weight: 500;
+}
+.theme-menu [role="menuitemradio"]:hover, .theme-menu [role="menuitemradio"]:focus-visible { background: var(--surface-2); }
+.theme-menu [role="menuitemradio"]:focus-visible { outline: 2px solid var(--ring); outline-offset: -2px; }
+.theme-menu [role="menuitemradio"]::after { content: ""; margin-left: auto; }
+.theme-menu [role="menuitemradio"][aria-checked="true"]::after { content: "✓"; }
+
+/* A short cross-fade while the theme changes (only then, so other animations are unaffected). */
+.theme-switching, .theme-switching *, .theme-switching *::before, .theme-switching *::after {
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .theme-switching, .theme-switching *, .theme-switching *::before, .theme-switching *::after { transition: none !important; }
 }

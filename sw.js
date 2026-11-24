@@ -17,12 +17,12 @@
 'use strict';
 
 // <files> written by tools/build-sw.js; do not edit by hand
-var VERSION = "5637bb47755e";
+var VERSION = "0f8240ed6489";
 var CORE = {
-  "index.html": "76e68dc79f28c845",
+  "index.html": "1f4a2765d9927747",
   "manifest.webmanifest": "fe83f065276dac97",
-  "css/style.css": "f0fdcf7ea16ac695",
-  "js/app.js": "1f353876d8e05a9d",
+  "css/style.css": "2c6de50091b3d100",
+  "js/app.js": "ff37e55bf634e5c5",
   "js/checks.js": "bb9bef75791567e5",
   "js/design.js": "6c8ab277a811f8c1",
   "js/dialog.js": "eeedbea06092c76b",
@@ -36,8 +36,9 @@ var CORE = {
   "js/lib/zip.js": "2b1af98edf649073",
   "js/outputs.js": "68ac04d65ca916dc",
   "js/previews.js": "8a8f067f9be0df3c",
-  "js/store.js": "549a041c0ede4e30",
+  "js/store.js": "ab82f6168f2266b7",
   "js/templates.js": "10076c5185477c29",
+  "js/theme.js": "fe6717f2ac1cec04",
   "assets/fonts/display/anton-name.woff2": "f6b0a10bcea248ae",
   "assets/fonts/geometric/montserrat-name.woff2": "3d20eb4b0ba070f0",
   "assets/fonts/handwritten/caveat-name.woff2": "4685c19d2a680b1a",

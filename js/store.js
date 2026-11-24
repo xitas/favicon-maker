@@ -138,7 +138,10 @@ const Store = (() => {
     for (const id of await imageIds()) if (!keep.has(id)) await deleteImage(id);
   }
 
-  /** Clear everything this app saved: its localStorage keys and its IndexedDB images. */
+  // Page preferences, not design data: Forget all saved data leaves them (the theme is saved by Theme).
+  const PREFERENCES = [PREFIX + 'theme'];
+
+  /** Clear everything this app saved: its localStorage keys (except page preferences) and its IndexedDB images. */
   async function forgetAll() {
     memory.local.clear();
     memory.images.clear();
@@ -147,7 +150,7 @@ const Store = (() => {
         const keys = [];
         for (let i = 0; i < localStorage.length; i++) {
           const k = localStorage.key(i);
-          if (k && k.indexOf(PREFIX) === 0) keys.push(k);
+          if (k && k.indexOf(PREFIX) === 0 && PREFERENCES.indexOf(k) === -1) keys.push(k);
         }
         keys.forEach((k) => localStorage.removeItem(k));
       } catch (e) { /* nothing more to do */ }

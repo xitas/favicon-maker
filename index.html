@@ -12,8 +12,31 @@
   <link rel="icon" type="image/png" sizes="16x16" href="assets/app-icon/favicon-16x16.png">
   <link rel="apple-touch-icon" href="assets/app-icon/apple-touch-icon.png">
   <!-- /app-icon -->
-  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" data-scheme="light" data-color="#ffffff">
+  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" data-scheme="dark" data-color="#000000">
+  <script>
+    // The page's theme, before anything is drawn, so there's no flash of the wrong one (also from file://).
+    // System (the default) follows the system setting; Light or Dark is the saved choice. js/theme.js does
+    // the same after loading, and keeps it up to date.
+    (function () {
+      var choice = 'system';
+      try {
+        var saved = localStorage.getItem('favicon-maker.theme');
+        if (saved === 'light' || saved === 'dark') choice = saved;
+      } catch (e) { /* no storage: System */ }
+      var dark = choice === 'dark' || (choice === 'system' && !!window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      var root = document.documentElement;
+      root.setAttribute('data-theme', dark ? 'dark' : 'light');
+      root.setAttribute('data-theme-choice', choice);
+      if (choice !== 'system') {
+        // The browser bar in the chosen theme's color, whatever the system setting.
+        var metas = document.querySelectorAll('meta[name="theme-color"][data-color]');
+        var color = null;
+        for (var i = 0; i < metas.length; i++) if (metas[i].getAttribute('data-scheme') === choice) color = metas[i].getAttribute('data-color');
+        for (var j = 0; j < metas.length; j++) metas[j].setAttribute('content', color);
+      }
+    })();
+  </script>
   <script>
     // The app manifest (install, opening files) only over http and https: opened from disk (file://),
     // the browser can't read it and would log an error.
@@ -34,6 +57,18 @@
         <h1>Favicon Generator</h1>
         <p>Design an icon from text, an emoji or an image, then download everything a website needs. It all happens in your browser, so your image never leaves your device.</p>
         <p id="appNote" class="hint note-line" role="status"></p>
+      </div>
+      <div class="theme-picker">
+        <button id="themeButton" class="btn ghost small theme-button" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="themeMenu" aria-label="Theme: System" title="Theme" data-choice="system">
+          <svg class="theme-icon" data-icon="system" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+          <svg class="theme-icon" data-icon="light" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+          <svg class="theme-icon" data-icon="dark" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20.99 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 20.99 12.79z"/></svg>
+        </button>
+        <div id="themeMenu" class="theme-menu" role="menu" aria-label="Theme" hidden>
+          <button type="button" role="menuitemradio" aria-checked="true" data-choice="system" tabindex="-1"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>System</button>
+          <button type="button" role="menuitemradio" aria-checked="false" data-choice="light" tabindex="-1"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>Light</button>
+          <button type="button" role="menuitemradio" aria-checked="false" data-choice="dark" tabindex="-1"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20.99 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 20.99 12.79z"/></svg>Dark</button>
+        </div>
       </div>
     </header>
 
@@ -483,6 +518,7 @@
   <script src="js/store.js" defer></script>
   <script src="js/checks.js" defer></script>
   <script src="js/templates.js" defer></script>
+  <script src="js/theme.js" defer></script>
   <script src="js/dialog.js" defer></script>
   <script src="js/previews.js" defer></script>
   <script src="js/app.js" defer></script>

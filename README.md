@@ -8,6 +8,7 @@ A favicon generator built with plain HTML, CSS and JavaScript. Make an icon from
 
 - **Three sources:** type up to 3 letters or emoji, pick one of about 2,100 icons from the Lucide library, or upload an image (PNG, JPG, SVG, WebP). Paste an image or SVG code with Ctrl+V (⌘V on a Mac) or the Paste image button, or drop one anywhere on the page. A link alone is never downloaded: save the image first
 - **Crop and colors from your image:** drag, zoom (slider, mouse wheel, pinch or keyboard) and trim empty edges so the logo fills the square. Pick any color with the eyedropper next to each color picker, or use one of the background colors suggested from the image
+- **Light and dark theme:** the theme button at the top chooses System (follows your device, the default), Light or Dark. The choice is remembered in this browser, apart from your designs; the icons and files always show your design
 - **Install and offline use:** install it as an app, open images and design files with it, and use it without a connection. See [Install and offline use](#install-and-offline-use)
 - **Templates and Surprise me:** start from one of 16 ready-made styles, shown with your own text, or let Surprise me pick colors, a shape and a font that always read well. Both are one undo step
 - **Design controls:** 8 bundled fonts, bold, text size and color; a rounded square, circle, squircle or square shape; a solid, linear gradient or radial gradient background, or none; an optional border; position fine-tuning; and optional different colors in dark mode
@@ -58,6 +59,7 @@ A favicon generator built with plain HTML, CSS and JavaScript. Make an icon from
 │   ├── design.js       # Checking settings, format versions, undo history, share links, export files
 │   ├── store.js        # Saving in the browser (localStorage and IndexedDB)
 │   ├── checks.js       # Design checks: contrast, tabs, small text, thin lines
+│   ├── theme.js        # The page's theme: System, Light or Dark
 │   ├── templates.js    # The template gallery and Surprise me
 │   ├── previews.js     # Preview tabs and mockups
 │   └── app.js          # Page UI: form, previews, downloads, saving and sharing
@@ -76,7 +78,7 @@ A favicon generator built with plain HTML, CSS and JavaScript. Make an icon from
 └── README.md
 ```
 
-The scripts are plain (non-module) scripts loaded in order, so the page still works when you open `index.html` straight from disk. Each file exposes one object (`Zip`, `Ico`, `Shrink`, `Svg`, `ImageTools`, `Fonts`, `Icons`, `Draw`, `Outputs`, `Design`, `Store`, `Checks`, `Templates`, `Dialog`, `Previews`) that the files after it use.
+The scripts are plain (non-module) scripts loaded in order, so the page still works when you open `index.html` straight from disk. Each file exposes one object (`Zip`, `Ico`, `Shrink`, `Svg`, `ImageTools`, `Fonts`, `Icons`, `Draw`, `Outputs`, `Design`, `Store`, `Checks`, `Templates`, `Theme`, `Dialog`, `Previews`) that the files after it use.
 
 The page makes no requests to other sites. The interface uses your system's fonts; the icons use fonts bundled in `assets/fonts/`, so an icon looks the same whichever computer it's made on.
 

@@ -1961,6 +1961,7 @@
   /* ---------- Start ---------- */
   setUpSections();
   buildFontMenu();
+  Theme.init(document.getElementById('themeButton'), document.getElementById('themeMenu'));
   Previews.init(refresh);
   addEyedroppers();
   buildFileList();
