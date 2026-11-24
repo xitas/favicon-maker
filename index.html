@@ -12,6 +12,18 @@
   <link rel="icon" type="image/png" sizes="16x16" href="assets/app-icon/favicon-16x16.png">
   <link rel="apple-touch-icon" href="assets/app-icon/apple-touch-icon.png">
   <!-- /app-icon -->
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+  <script>
+    // The app manifest (install, opening files) only over http and https: opened from disk (file://),
+    // the browser can't read it and would log an error.
+    if (/^https?:$/.test(location.protocol)) {
+      var manifest = document.createElement('link');
+      manifest.rel = 'manifest';
+      manifest.href = 'manifest.webmanifest';
+      document.head.appendChild(manifest);
+    }
+  </script>
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -31,9 +43,10 @@
           <button id="undo" class="btn ghost small" type="button" aria-keyshortcuts="Control+Z Meta+Z" disabled>Undo</button>
           <button id="redo" class="btn ghost small" type="button" aria-keyshortcuts="Control+Shift+Z Meta+Shift+Z Control+Y" disabled>Redo</button>
           <button id="reset" class="btn ghost small" type="button">Reset to default</button>
-          <button id="surprise" class="btn ghost small" type="button" aria-describedby="templateNote">Surprise me</button>
+          <button id="surprise" class="btn ghost small" type="button" aria-describedby="toolbarNote">Surprise me</button>
+          <button id="install" class="btn ghost small" type="button" aria-describedby="toolbarNote" hidden>Install app</button>
         </div>
-        <p id="templateNote" class="hint note-line" role="status"></p>
+        <p id="toolbarNote" class="hint note-line" role="status"></p>
 
         <details class="section" id="secTemplates">
           <summary>Templates</summary>

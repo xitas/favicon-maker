@@ -114,7 +114,7 @@ for (const target of targets()) {
         assert.equal(applied.text, start.text, 'the text stays');
         assert.equal(applied.fg, '#6b2a1a');
         assert.equal(applied.border, true);
-        assert.match(await page.locator('#templateNote').textContent(), /Applied the “Slab stamp” template\. Undo brings your design back\./);
+        assert.match(await page.locator('#toolbarNote').textContent(), /Applied the “Slab stamp” template\. Undo brings your design back\./);
         assert.match(await checksText(page), /Looks good at every size/);
 
         await page.click('#undo');
@@ -192,7 +192,7 @@ for (const target of targets()) {
           assert.ok(passes, `surprise ${i} passes the contrast check`);
           states.push(s);
         }
-        assert.match(await page.locator('#templateNote').textContent(), /Undo brings the last one back/);
+        assert.match(await page.locator('#toolbarNote').textContent(), /Undo brings the last one back/);
         assert.ok(new Set(states.map((s) => s.bg)).size > 8, 'different looks');
         // Each one is its own undo step.
         for (let i = states.length - 2; i >= states.length - 4; i--) {

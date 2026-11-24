@@ -1,0 +1,30 @@
+{
+  "id": "./",
+  "name": "Favicon Generator",
+  "short_name": "Favicons",
+  "description": "Make a favicon from text, an emoji, an icon or an image, and download every file a website needs. Everything happens on your device.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "icons": [
+    { "src": "assets/app-icon/android-chrome-192x192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "assets/app-icon/android-chrome-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "assets/app-icon/maskable-icon-192x192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "assets/app-icon/maskable-icon-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "file_handlers": [
+    {
+      "action": "./",
+      "accept": {
+        "image/png": [".png"],
+        "image/jpeg": [".jpg", ".jpeg"],
+        "image/svg+xml": [".svg"],
+        "image/webp": [".webp"],
+        "application/json": [".json"]
+      }
+    }
+  ],
+  "launch_handler": { "client_mode": "focus-existing" }
+}

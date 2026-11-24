@@ -44,6 +44,8 @@ jobs:
             files: tests/browser/svg.test.js tests/browser/shrink.test.js tests/browser/paste.test.js
           - group: app and fonts
             files: tests/browser/app.test.js tests/browser/fonts.test.js
+          - group: install and offline
+            files: tests/browser/install.test.js
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -78,7 +80,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: |
-          grouped="tests/browser/designs.test.js tests/browser/templates.test.js tests/browser/styles.test.js tests/browser/same-everywhere.test.js tests/browser/crop.test.js tests/browser/icons.test.js tests/browser/maskable.test.js tests/browser/previews.test.js tests/browser/checks.test.js tests/browser/svg.test.js tests/browser/shrink.test.js tests/browser/paste.test.js tests/browser/app.test.js tests/browser/fonts.test.js"
+          grouped="tests/browser/designs.test.js tests/browser/templates.test.js tests/browser/styles.test.js tests/browser/same-everywhere.test.js tests/browser/crop.test.js tests/browser/icons.test.js tests/browser/maskable.test.js tests/browser/previews.test.js tests/browser/checks.test.js tests/browser/svg.test.js tests/browser/shrink.test.js tests/browser/paste.test.js tests/browser/app.test.js tests/browser/fonts.test.js tests/browser/install.test.js"
           for f in tests/browser/*.test.js; do
             case " $grouped " in *" $f "*) ;; *) echo "::error::$f is not in a browser test group"; exit 1 ;; esac
           done

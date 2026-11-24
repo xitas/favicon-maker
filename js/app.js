@@ -27,7 +27,7 @@
     sizes: $('sizes'), files: $('files'), filesNote: $('filesNote'), zip: $('zip'),
     basePath: $('basePath'), snippet: $('snippet'), copySnippet: $('copySnippet'),
     undo: $('undo'), redo: $('redo'), reset: $('reset'), appNote: $('appNote'),
-    surprise: $('surprise'), templateNote: $('templateNote'), secTemplates: $('secTemplates'), templates: $('templates'),
+    surprise: $('surprise'), install: $('install'), toolbarNote: $('toolbarNote'), secTemplates: $('secTemplates'), templates: $('templates'),
     share: $('share'), shareBox: $('shareBox'), shareUrl: $('shareUrl'), shareNote: $('shareNote'),
     designName: $('designName'), saveDesign: $('saveDesign'), designsNote: $('designsNote'), undoDelete: $('undoDelete'),
     designs: $('designs'), designsEmpty: $('designsEmpty'), exportDesign: $('exportDesign'), importDesign: $('importDesign'),
@@ -1164,14 +1164,76 @@
     el.designName.value = '';
     savedFrom = null;
     onChange(null);
-    setStatus(el.templateNote, 'Applied the “' + t.name + '” template. Undo brings your design back.', false);
+    setStatus(el.toolbarNote, 'Applied the “' + t.name + '” template. Undo brings your design back.', false);
   }
 
   /** A random look that always reads well. Keeps the text or image, so it never needs to ask first. */
   async function surpriseMe() {
     await applyState({ settings: Templates.surprise(currentSettings()), image: imageRecord });
     onChange(null);
-    setStatus(el.templateNote, 'Here’s a new look. Undo brings the last one back.', false);
+    setStatus(el.toolbarNote, 'Here’s a new look. Undo brings the last one back.', false);
+  }
+
+  /* Install, and opening files with the installed app */
+
+  const IOS_TIP = 'To install, tap Share, then Add to Home Screen.';
+  let installPrompt = null;
+  const isIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isInstalled = () => (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+
+  /** Install app shows where the browser offers installing, or on iPhone and iPad (as a tip); never once installed. */
+  function syncInstall() {
+    el.install.hidden = isInstalled() || !(installPrompt || isIOS());
+  }
+
+  async function installApp() {
+    if (installPrompt) {
+      const prompt = installPrompt;
+      installPrompt = null;
+      syncInstall();
+      prompt.prompt();
+      try { await prompt.userChoice; } catch (e) { /* closed */ }
+      syncInstall();
+      return;
+    }
+    if (isIOS()) setStatus(el.toolbarNote, IOS_TIP, false);
+  }
+
+  function initInstall() {
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault(); // our own button instead of the browser's banner
+      installPrompt = e;
+      syncInstall();
+    });
+    window.addEventListener('appinstalled', () => {
+      installPrompt = null;
+      syncInstall();
+      setStatus(el.toolbarNote, 'Favicon Generator is installed.', false);
+    });
+    el.install.addEventListener('click', installApp);
+    syncInstall();
+  }
+
+  /**
+   * A file opened with the installed app (desktop Chrome and Edge, file_handlers in the manifest): an
+   * image is loaded and cleaned like an upload; a design file is checked like an import.
+   */
+  function openLaunchedFile(file) {
+    if (!file) return;
+    if (/\.json$/i.test(file.name) || file.type === 'application/json') {
+      importDesign(file);
+      return;
+    }
+    if (mode !== 'image') setMode('image');
+    loadFile(file);
+  }
+
+  function initLaunchQueue() {
+    if (!window.launchQueue || typeof window.launchQueue.setConsumer !== 'function') return;
+    window.launchQueue.setConsumer((params) => {
+      if (!params || !params.files || !params.files.length) return;
+      params.files[0].getFile().then(openLaunchedFile, () => imageNote('That file could not be opened.', true));
+    });
   }
 
   /* Autosave */
@@ -1664,7 +1726,10 @@
   refresh();
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(refresh);
   // Bring back the saved design. The page says it is ready (for tests and scripts) once that is done.
+  initInstall();
   restore().catch(() => setAppNote(NOTES.storage, false)).then(() => {
+    // A file opened with the installed app comes after the saved design, so it isn't replaced by it.
+    initLaunchQueue();
     document.documentElement.dataset.ready = '1';
   });
 })();
