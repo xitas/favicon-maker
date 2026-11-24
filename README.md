@@ -8,6 +8,7 @@ A favicon generator built with plain HTML, CSS and JavaScript. Make an icon from
 
 - **Three sources:** type up to 3 letters or emoji, pick one of about 2,100 icons from the Lucide library, or upload an image (PNG, JPG, SVG, WebP). Paste an image or SVG code with Ctrl+V (⌘V on a Mac) or the Paste image button, or drop one anywhere on the page. A link alone is never downloaded: save the image first
 - **Crop and colors from your image:** drag, zoom (slider, mouse wheel, pinch or keyboard) and trim empty edges so the logo fills the square. Pick any color with the eyedropper next to each color picker, or use one of the background colors suggested from the image
+- **Install and offline use:** install it as an app, open images and design files with it, and use it without a connection. See [Install and offline use](#install-and-offline-use)
 - **Templates and Surprise me:** start from one of 16 ready-made styles, shown with your own text, or let Surprise me pick colors, a shape and a font that always read well. Both are one undo step
 - **Design controls:** 8 bundled fonts, bold, text size and color; a rounded square, circle, squircle or square shape; a solid, linear gradient or radial gradient background, or none; an optional border; position fine-tuning; and optional different colors in dark mode
 - **Emoji style:** this device's emoji, or the same emoji everywhere with a bundled emoji font
@@ -34,7 +35,10 @@ A favicon generator built with plain HTML, CSS and JavaScript. Make an icon from
 ```
 .
 ├── index.html          # Page markup
+├── manifest.webmanifest # Web app manifest: name, icons, opening image and design files
+├── sw.js               # Service worker: keeps the app's own files for offline use
 ├── assets/
+│   ├── app-icon/       # The app's own favicon, made by the app (tools/make-app-icon.js)
 │   ├── fonts/          # Bundled icon fonts (woff2) and their glyph outlines, each with its OFL license
 │   └── icons/          # The Lucide icon set as path data, with its ISC license
 ├── css/
@@ -64,13 +68,15 @@ A favicon generator built with plain HTML, CSS and JavaScript. Make an icon from
 │   └── fixtures/       # Test-only files
 ├── tools/
 │   ├── build-fonts.py  # Rebuilds assets/fonts from the upstream fonts (maintainers only)
-│   └── build-icons.js  # Rebuilds assets/icons from Lucide (maintainers only)
+│   ├── build-icons.js  # Rebuilds assets/icons from Lucide (maintainers only)
+│   ├── build-sw.js     # Writes the service worker's file lists and hashes (npm run build-sw)
+│   └── make-app-icon.js # Makes the app's own icon with the app, in Playwright (npm run app-icon)
 ├── LICENSE
 ├── package.json        # Test tools only, the page doesn't use them
 └── README.md
 ```
 
-The scripts are plain (non-module) scripts loaded in order, so the page still works when you open `index.html` straight from disk. Each file exposes one object (`Zip`, `Ico`, `Shrink`, `Svg`, `Fonts`, `Icons`, `Draw`, `Outputs`, `Design`, `Store`, `Dialog`) that the files after it use.
+The scripts are plain (non-module) scripts loaded in order, so the page still works when you open `index.html` straight from disk. Each file exposes one object (`Zip`, `Ico`, `Shrink`, `Svg`, `ImageTools`, `Fonts`, `Icons`, `Draw`, `Outputs`, `Design`, `Store`, `Checks`, `Templates`, `Dialog`, `Previews`) that the files after it use.
 
 The page makes no requests to other sites. The interface uses your system's fonts; the icons use fonts bundled in `assets/fonts/`, so an icon looks the same whichever computer it's made on.
 
@@ -91,7 +97,9 @@ Optionally, serve it locally:
 python3 -m http.server 8000
 ```
 
-Then visit `http://localhost:8000`.
+Then visit `http://localhost:8000`. Served this way (or on `localhost` in general), the service worker runs, so you can try offline use and installing.
+
+After changing any of the app's files, run `npm run build-sw` to write their new hashes into `sw.js` (a unit test fails until you do), so visitors get the new version instead of old copies.
 
 ## Running tests
 
@@ -140,6 +148,22 @@ The icon paths inside `site.webmanifest` are relative to the manifest, so they w
 - The ZIP file is built in the browser too, with no library.
 - `apple-touch-icon.png` is always a full square with a solid background, because iOS adds its own rounded corners and does not support transparency. If you choose a transparent background, it uses white.
 - The maskable icons are full squares too, with no rounded corners and no transparency, because Android cuts them to its own shape. Only the middle circle (80% across) is sure to show, so your design is drawn inside it. Use **Maskable padding** to shrink it further. The manifest lists them with `"purpose": "maskable"`, separately from the normal icons, which have `"purpose": "any"`.
+
+## Install and offline use
+
+Favicon Generator can be installed as an app, and works offline after your first visit.
+
+- **Install:** in Chrome or Edge, on a computer or on Android, click **Install app** above the controls (it shows only when the browser can install the app, and not once it's installed). On iPhone and iPad, tap **Share**, then **Add to Home Screen**.
+- **Open files with it:** once installed in Chrome or Edge on a computer, choose Favicon Generator in your system's **Open with** menu for a PNG, JPG, SVG or WebP image, or a design `.json` file exported from the app. An image is loaded and cleaned like an upload; a design file is checked like an import.
+- **Offline:** a service worker keeps the app's own files: the page, its styles and scripts, and the app icon. Each font, its outlines, the emoji font and the icon library are large, so each is kept the first time you use it: after you've used a font once, it works offline. To keep everything at once, open **Offline use** at the end of the controls and click **Make everything available offline** (about 6 MB; it shows its progress and can be cancelled). Offline, choosing a font you haven't used yet says "This font isn't available offline yet." and keeps your design as it was.
+- **Your designs stay yours:** the service worker never keeps your images or designs. They stay in your browser's IndexedDB and localStorage, as before. When you save a design to **My designs**, the app asks the browser to keep its storage, so it isn't cleared when the device runs low on space, and says what the browser answered.
+- **Updates:** when a new version is published, a message says "A new version is available." Click **Reload** to switch (your design is saved first and comes back), or **Not now** to get it next time. The page never reloads by itself.
+- **Remove the app:** in the app window, open its menu (**⋯** in the title bar) and choose **Uninstall**, or go to `chrome://apps` or `edge://apps`. On Android, press and hold the icon and choose **Uninstall**; on iPhone and iPad, press and hold it and choose **Remove App**.
+- **Clear the offline copy:** on the site, open the site settings (the icon left of the address) and choose **Delete data** or **Clear site data**, or in DevTools go to **Application → Storage → Clear site data**. This also removes your saved designs, so export the ones you want to keep first.
+
+The service worker only runs over https (GitHub Pages) or on `localhost`. Opened straight from disk, the page works as before, without offline use or installing.
+
+Sharing an image to the app from Android's share sheet isn't supported: it would need the service worker to receive the image and hold it until the page opens, and it never handles your images.
 
 ## Saving, undo and sharing
 

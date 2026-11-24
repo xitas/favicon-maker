@@ -284,6 +284,20 @@ const Design = (() => {
       return this.present;
     }
 
+    /**
+     * Undo a change that couldn't be made (a font that isn't available offline), putting `state` (the
+     * design as it was) back as the latest state, with nothing to redo. When the step before is that
+     * state, it's a plain step back; when the change was merged into a step (quick changes to one control),
+     * that step becomes `state`.
+     */
+    revert(state, equal) {
+      const eq = equal || ((a, b) => JSON.stringify(a) === JSON.stringify(b));
+      if (this.past.length && eq(this.past[this.past.length - 1], state)) this.present = this.past.pop();
+      else this.present = state;
+      this.lastGroup = null;
+      return this.present;
+    }
+
     redo() {
       if (!this.canRedo()) return null;
       this.past.push(this.present);

@@ -53,6 +53,7 @@
           <div class="section-body">
             <p id="templatesHelp" class="hint">Start from a style. Your text stays; Undo brings your design back.</p>
             <div id="templates" class="templates" role="group" aria-label="Templates" aria-describedby="templatesHelp"></div>
+            <p id="templatesOffline" class="hint note-line" hidden>Templates in fonts you haven’t used yet show up when you’re back online.</p>
           </div>
         </details>
 
@@ -267,6 +268,19 @@
             </label>
           </div>
         </details>
+
+        <details class="section" id="secOffline" hidden>
+          <summary>Offline use</summary>
+          <div class="section-body">
+            <p id="offlineStatus" class="hint">Fonts, emoji and icons are saved for offline use the first time you use them.</p>
+            <div class="offline-row">
+              <button id="offlineAll" class="btn small" type="button" aria-describedby="offlineStatus">Make everything available offline</button>
+              <button id="offlineCancel" class="btn ghost small" type="button" hidden>Cancel</button>
+            </div>
+            <progress id="offlineProgress" class="offline-progress" max="100" value="0" aria-label="Downloading for offline use" hidden></progress>
+            <p id="offlineNote" class="hint note-line" role="status"></p>
+          </div>
+        </details>
       </section>
 
       <div class="out">
@@ -418,6 +432,7 @@
             <p id="designsNote" class="hint note-line" role="status"></p>
             <button id="undoDelete" class="btn ghost small" type="button" hidden>Undo</button>
           </div>
+          <p id="persistNote" class="hint note-line"></p>
           <ul id="designs" class="designs" aria-labelledby="designsTitle"></ul>
           <p id="designsEmpty" class="hint">No saved designs yet.</p>
           <div class="file-actions">
@@ -447,6 +462,12 @@
       </div>
     </div>
   </dialog>
+
+  <div id="updateBar" class="update-bar" role="status" hidden>
+    <span id="updateText"></span>
+    <button id="updateReload" class="btn small" type="button">Reload</button>
+    <button id="updateLater" class="btn ghost small" type="button">Not now</button>
+  </div>
 
   <!-- Order matters: each file uses the ones above it. -->
   <script src="js/lib/zip.js" defer></script>

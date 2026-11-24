@@ -29,7 +29,9 @@ async function launch(name = 'chromium') {
  * @param {string} url
  */
 async function openApp(browser, url, options = {}) {
-  const context = await browser.newContext({ acceptDownloads: true, ...options });
+  // No service worker: requests it answers would get past the routing below (and the tests that change or
+  // fail requests). tests/browser/offline.test.js opens its own pages with the service worker.
+  const context = await browser.newContext({ acceptDownloads: true, serviceWorkers: 'block', ...options });
   const page = await context.newPage();
   const errors = [];
   const externalRequests = [];

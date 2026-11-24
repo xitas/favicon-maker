@@ -18,23 +18,31 @@ const TYPES = {
   '.txt': 'text/plain; charset=utf-8'
 };
 
-/** @returns {Promise<{ url: string, close: () => Promise<void> }>} */
-function startServer() {
+/**
+ * @param {object} [options]
+ * @param {string} [options.root]  folder to serve (default: the project)
+ * @param {(pathname: string) => number} [options.delay]  milliseconds to wait before answering, per file
+ * @returns {Promise<{ url: string, close: () => Promise<void> }>}
+ */
+function startServer(options = {}) {
+  const root = options.root || ROOT;
   const server = http.createServer((req, res) => {
     const pathname = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
-    const file = path.join(ROOT, pathname.endsWith('/') ? pathname + 'index.html' : pathname);
-    if (!file.startsWith(ROOT + path.sep) || file.includes(path.sep + 'node_modules' + path.sep)) {
+    const file = path.join(root, pathname.endsWith('/') ? pathname + 'index.html' : pathname);
+    if (!file.startsWith(root + path.sep) || file.includes(path.sep + 'node_modules' + path.sep)) {
       res.writeHead(403).end();
       return;
     }
-    fs.readFile(file, (err, data) => {
+    const wait = options.delay ? options.delay(pathname) : 0;
+    setTimeout(() => fs.readFile(file, (err, data) => {
       if (err) {
         res.writeHead(404).end();
         return;
       }
-      res.writeHead(200, { 'Content-Type': TYPES[path.extname(file)] || 'application/octet-stream' });
+      // No HTTP caching, like a fresh visit: what the service worker keeps is all there is.
+      res.writeHead(200, { 'Content-Type': TYPES[path.extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-store' });
       res.end(data);
-    });
+    }), wait);
   });
   return new Promise((resolve) => {
     server.listen(0, '127.0.0.1', () => {

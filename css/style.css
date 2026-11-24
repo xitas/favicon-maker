@@ -832,3 +832,23 @@ pre {
   background-size: 8px 8px;
   background-position: 0 0, 4px 4px;
 }
+.template canvas[data-offline] { border: 1px dashed var(--line); border-radius: 6px; }
+
+/* Offline use */
+.offline-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.offline-progress { display: block; width: 100%; height: 6px; margin-top: 10px; accent-color: var(--accent); }
+.offline-progress[hidden] { display: none; }
+
+/* "A new version is available": at the bottom of the window until Reload or Not now */
+.update-bar {
+  position: fixed; left: 50%; bottom: 16px; z-index: 50; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 10px; max-width: calc(100% - 32px);
+  padding: 10px 12px 10px 16px; border: 1px solid var(--line); border-radius: 12px;
+  background: var(--surface); color: var(--fg); box-shadow: var(--shadow-small);
+  font-size: 13px;
+}
+.update-bar[hidden] { display: none; }
+@media (max-width: 480px) {
+  .update-bar { left: 16px; right: 16px; transform: none; flex-wrap: wrap; }
+  .update-bar span { flex: 1 1 100%; }
+}

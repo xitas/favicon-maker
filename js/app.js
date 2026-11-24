@@ -28,6 +28,9 @@
     basePath: $('basePath'), snippet: $('snippet'), copySnippet: $('copySnippet'),
     undo: $('undo'), redo: $('redo'), reset: $('reset'), appNote: $('appNote'),
     surprise: $('surprise'), install: $('install'), toolbarNote: $('toolbarNote'), secTemplates: $('secTemplates'), templates: $('templates'),
+    templatesOffline: $('templatesOffline'), secOffline: $('secOffline'), offlineStatus: $('offlineStatus'), offlineAll: $('offlineAll'),
+    offlineCancel: $('offlineCancel'), offlineProgress: $('offlineProgress'), offlineNote: $('offlineNote'), persistNote: $('persistNote'),
+    updateBar: $('updateBar'), updateText: $('updateText'), updateReload: $('updateReload'), updateLater: $('updateLater'),
     share: $('share'), shareBox: $('shareBox'), shareUrl: $('shareUrl'), shareNote: $('shareNote'),
     designName: $('designName'), saveDesign: $('saveDesign'), designsNote: $('designsNote'), undoDelete: $('undoDelete'),
     designs: $('designs'), designsEmpty: $('designsEmpty'), exportDesign: $('exportDesign'), importDesign: $('importDesign'),
@@ -409,8 +412,18 @@
         updateEmojiNote(raw, s);
         draw(s);
         drawTemplates();
+        lastDrawn = snapshot();
+        if (pendingOfflineNote) {
+          // Shown once the design is back as it was (the redraw would otherwise clear it).
+          pendingOfflineNote.forEach(([node, text]) => setStatus(node, text, false));
+          pendingOfflineNote = null;
+        }
       }, (err) => {
         if (seq !== drawSeq) return;
+        if (!navigator.onLine) {
+          offlineFailure(raw, err);
+          return;
+        }
         if (raw.mode === 'icon' && Icons.loaded() && !Icons.get(raw.icon)) updateIconNote();
         else if (raw.mode === 'icon') setStatus(el.iconNote, 'Could not draw the icon: ' + err.message + '.', true);
         else setStatus(el.fontNote, 'Could not load the font: ' + err.message + '. Try another font, or reload the page.', true);
@@ -1153,8 +1166,14 @@
         thumb.canvas.width = thumb.canvas.height = size;
         Draw.icon(thumb.canvas.getContext('2d'), size, ready, false);
         thumb.canvas.dataset.drawn = '1';
+        delete thumb.canvas.dataset.offline;
         thumb.canvas.toggleAttribute('data-transparent', !!ready.transparent);
-      }, () => { /* left blank: the template still applies, and the preview says what's wrong */ });
+        el.templatesOffline.hidden = !el.templates.querySelector('canvas[data-offline]');
+      }, () => {
+        // Left blank: offline, its font isn't kept yet. Applying it says so.
+        if (!navigator.onLine) thumb.canvas.dataset.offline = '1';
+        el.templatesOffline.hidden = !el.templates.querySelector('canvas[data-offline]');
+      });
     });
   }
 
@@ -1226,6 +1245,211 @@
     }
     if (mode !== 'image') setMode('image');
     loadFile(file);
+  }
+
+  /* Offline use (service worker) */
+
+  // Only over https or on this computer. Opened from disk (file://) there is no service worker, quietly,
+  // and everything works as before, just without offline use.
+  const canUseSw = 'serviceWorker' in navigator && (location.protocol === 'https:' || /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname));
+  const OFFLINE_FONT_NOTE = 'This font isn’t available offline yet.';
+  const OFFLINE_ICONS_NOTE = 'The icons aren’t available offline yet.';
+  let waitingWorker = null;
+  let reloading = false;
+  let offlineAbort = null;
+  let lastDrawn = null; // the design as last drawn, to go back to when a change can't be drawn offline
+  let pendingOfflineNote = null; // [[node, text]] to show after that
+
+  function formatBytes(n) {
+    return n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB';
+  }
+
+  /** Ask the active service worker what it keeps: { version, files: [{ file, bytes, cached }] }. */
+  async function offlineStatus() {
+    const reg = await navigator.serviceWorker.ready;
+    return new Promise((resolve, reject) => {
+      const channel = new MessageChannel();
+      const timer = setTimeout(() => reject(new Error('no answer')), 5000);
+      channel.port1.onmessage = (e) => { clearTimeout(timer); resolve(e.data); };
+      reg.active.postMessage({ type: 'status' }, [channel.port2]);
+    });
+  }
+
+  async function showOfflineStatus() {
+    let st;
+    try { st = await offlineStatus(); } catch (e) { return null; }
+    const total = st.files.reduce((n, f) => n + f.bytes, 0);
+    const kept = st.files.filter((f) => f.cached).reduce((n, f) => n + f.bytes, 0);
+    const all = kept === total;
+    el.offlineStatus.textContent = all
+      ? 'Everything is available offline: every font, the emoji and the icons.'
+      : 'Fonts, emoji and icons are saved for offline use the first time you use them. ' + formatBytes(kept) + ' of ' + formatBytes(total) + ' saved so far.';
+    el.offlineAll.textContent = 'Make everything available offline (' + formatBytes(total) + ')';
+    el.offlineAll.disabled = all || !!offlineAbort;
+    return st;
+  }
+
+  /** Download every optional file once; the service worker keeps each one. Shows progress; can be cancelled. */
+  async function cacheEverything() {
+    const st = await showOfflineStatus();
+    if (!st) return;
+    const todo = st.files.filter((f) => !f.cached);
+    const total = todo.reduce((n, f) => n + f.bytes, 0);
+    let done = 0;
+    offlineAbort = new AbortController();
+    el.offlineAll.disabled = true;
+    el.offlineCancel.hidden = false;
+    el.offlineProgress.hidden = false;
+    el.offlineProgress.value = 0;
+    setStatus(el.offlineNote, 'Downloading ' + formatBytes(total) + ' for offline use…', false);
+    try {
+      for (const f of todo) {
+        const res = await fetch(f.file, { signal: offlineAbort.signal });
+        if (!res.ok) throw new Error(f.file);
+        await res.arrayBuffer();
+        done += f.bytes;
+        el.offlineProgress.value = Math.round((done / total) * 100);
+        el.offlineProgress.setAttribute('aria-valuetext', formatBytes(done) + ' of ' + formatBytes(total));
+      }
+      setStatus(el.offlineNote, 'Everything is available offline.', false);
+    } catch (e) {
+      setStatus(el.offlineNote, offlineAbort.signal.aborted
+        ? 'Cancelled. What was already downloaded stays available offline.'
+        : 'Some files could not be downloaded. Check the connection and try again.', !offlineAbort.signal.aborted);
+    } finally {
+      offlineAbort = null;
+      el.offlineCancel.hidden = true;
+      el.offlineProgress.hidden = true;
+      await showOfflineStatus();
+    }
+  }
+
+  // Fonts, outlines and icons the page loaded without the service worker (on the first visit, before it
+  // took over, or while it was starting) aren't kept yet. Each is fetched again through it, so a font used
+  // once works offline. Resource timing tells: workerStart is 0 when no service worker handled a request.
+  const unkept = new Set();
+  let keeping = false;
+
+  function noteResource(entry) {
+    if (entry.workerStart > 0) return;
+    const url = new URL(entry.name);
+    const scope = new URL('.', location.href).pathname;
+    if (url.origin !== location.origin || !url.pathname.startsWith(scope)) return;
+    const file = decodeURIComponent(url.pathname.slice(scope.length));
+    if (/^assets\/fonts\/.+\.(woff2|glyphs\.js)$/.test(file) && !/-name\.woff2$/.test(file)) unkept.add(file);
+    if (file === 'assets/icons/lucide.js') unkept.add(file);
+  }
+
+  async function keepUsedFiles() {
+    if (keeping || !navigator.serviceWorker.controller || !unkept.size) return;
+    keeping = true;
+    try {
+      while (unkept.size) {
+        const file = unkept.values().next().value;
+        unkept.delete(file);
+        await fetch(file).then((r) => r.arrayBuffer()).catch(() => {});
+      }
+    } finally {
+      keeping = false;
+    }
+    showOfflineStatus();
+  }
+
+  function showUpdate(worker) {
+    waitingWorker = worker;
+    el.updateBar.hidden = false;
+    // Set after showing, so screen readers announce it.
+    el.updateText.textContent = 'A new version is available.';
+  }
+
+  /** Reload into the new version. The design is saved first (autosave), so it comes back after the reload. */
+  async function reloadForUpdate() {
+    try { await saveCurrent(); } catch (e) { /* the last autosave stays */ }
+    if (!waitingWorker) {
+      location.reload();
+      return;
+    }
+    reloading = true;
+    waitingWorker.postMessage({ type: 'skip-waiting' });
+  }
+
+  /**
+   * A change that can't be drawn because its font, the emoji font or the icons aren't kept for offline use
+   * yet: say so, and go back to the design as it was, as if the change hadn't been made.
+   */
+  async function offlineFailure(raw, err) {
+    const icons = raw.mode === 'icon';
+    const emoji = !icons && /emoji/.test(err && err.message);
+    const note = icons ? OFFLINE_ICONS_NOTE : OFFLINE_FONT_NOTE;
+    const fromToolbar = !!el.toolbarNote.textContent; // a template or Surprise me asked for it
+    const notes = [[icons ? el.iconNote : emoji ? el.emojiNote : el.fontNote, note]];
+    if (fromToolbar) notes.push([el.toolbarNote, note]);
+    notes.forEach(([node, text]) => setStatus(node, text, false));
+    if (lastDrawn && !sameState(snapshot(), lastDrawn)) {
+      if (undoHistory.present && sameState(undoHistory.present, snapshot())) undoHistory.revert(lastDrawn, sameState);
+      else undoHistory.record(lastDrawn, null, Date.now(), sameState);
+      pendingOfflineNote = notes;
+      await applyState(lastDrawn);
+      scheduleSave();
+    }
+  }
+
+  function initOffline() {
+    if (!canUseSw) return;
+    el.secOffline.hidden = false;
+    if (typeof PerformanceObserver === 'function') {
+      try {
+        new PerformanceObserver((list) => {
+          list.getEntries().forEach(noteResource);
+          keepUsedFiles();
+        }).observe({ type: 'resource', buffered: true });
+      } catch (e) { /* no resource timing: files are kept from the next visit on */ }
+    }
+    navigator.serviceWorker.register('sw.js').then((reg) => {
+      // A new version waits; it's offered only when this page already runs on an older one.
+      const offer = (w) => { if (w && navigator.serviceWorker.controller) showUpdate(w); };
+      offer(reg.waiting);
+      reg.addEventListener('updatefound', () => {
+        const w = reg.installing;
+        if (w) w.addEventListener('statechange', () => { if (w.state === 'installed') offer(w); });
+      });
+      // Look for a new version now and then, and when the page comes back into view.
+      const check = () => reg.update().catch(() => {});
+      setInterval(check, 30 * 60 * 1000);
+      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') check(); });
+      return navigator.serviceWorker.ready.then(() => { keepUsedFiles(); return showOfflineStatus(); });
+    }).catch(() => { el.secOffline.hidden = true; });
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (reloading) location.reload();
+      else keepUsedFiles();
+    });
+    el.updateReload.addEventListener('click', reloadForUpdate);
+    el.updateLater.addEventListener('click', () => {
+      el.updateBar.hidden = true;
+      el.undo.focus();
+    });
+    el.offlineAll.addEventListener('click', cacheEverything);
+    el.offlineCancel.addEventListener('click', () => { if (offlineAbort) offlineAbort.abort(); });
+    el.secOffline.addEventListener('toggle', () => { if (el.secOffline.open) showOfflineStatus(); });
+    // Back online: what couldn't be drawn can be now.
+    window.addEventListener('online', () => {
+      templateThumbs.forEach((t) => { if (t.canvas.dataset.offline) t.key = ''; });
+      drawTemplates();
+    });
+  }
+
+  /** Ask the browser to keep the app's storage, so saved designs aren't cleared when space runs low. */
+  async function keepStorage() {
+    if (!navigator.storage || typeof navigator.storage.persist !== 'function') return;
+    let kept = false;
+    try {
+      kept = (typeof navigator.storage.persisted === 'function' && await navigator.storage.persisted()) || await navigator.storage.persist();
+    } catch (e) {
+      return;
+    }
+    setStatus(el.persistNote, kept
+      ? 'This browser keeps your saved designs, even when space runs low.'
+      : 'This browser may clear saved designs when space runs low. Export the ones you want to keep.', false);
   }
 
   function initLaunchQueue() {
@@ -1372,6 +1596,7 @@
     await saveCurrent();
     renderDesigns();
     setStatus(el.designsNote, (existing ? 'Updated “' : 'Saved “') + name + '”.', false);
+    keepStorage();
   }
 
   /** Ask before replacing a design that has unsaved changes. */
@@ -1727,6 +1952,7 @@
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(refresh);
   // Bring back the saved design. The page says it is ready (for tests and scripts) once that is done.
   initInstall();
+  initOffline();
   restore().catch(() => setAppNote(NOTES.storage, false)).then(() => {
     // A file opened with the installed app comes after the saved design, so it isn't replaced by it.
     initLaunchQueue();

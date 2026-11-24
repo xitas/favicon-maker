@@ -317,19 +317,41 @@ const Fonts = (() => {
     return ink > 200 && color > ink * 0.5;
   }
 
-  /** Load the bundled emoji font once. Resolves true when this browser draws it in color. */
+  /**
+   * Load the bundled emoji font once. Resolves true when this browser draws it in color. When the file
+   * can't be downloaded (offline, say), the state is 'failed' and the next call tries again.
+   */
   function loadEmoji() {
     if (!emojiPromise) {
       emojiState = 'loading';
       // Declared for every weight: with bold text, Firefox on Linux would otherwise fake a bold emoji
       // (thicker, and clipped at its edges). Emoji have no bold.
       const face = new FontFace(EMOJI_FAMILY, 'url("' + BASE + EMOJI_FILE + '")', { display: 'block', weight: '1 1000' });
-      emojiPromise = face.load()
-        .then(() => { document.fonts.add(face); return emojiDrawsInColor(); })
-        .catch(() => false)
-        .then((ok) => { emojiState = ok ? 'ready' : 'unsupported'; return ok; });
+      emojiPromise = face.load().then(
+        () => {
+          document.fonts.add(face);
+          const ok = emojiDrawsInColor();
+          emojiState = ok ? 'ready' : 'unsupported';
+          return ok;
+        },
+        () => {
+          emojiState = 'failed';
+          emojiPromise = null;
+          return false;
+        }
+      );
     }
     return emojiPromise;
+  }
+
+  /** Forget a font that failed to load, so the next attempt downloads it again instead of failing at once. */
+  function unregister(name) {
+    const k = key(name);
+    if (!registered[k]) return;
+    registered[k] = false;
+    document.fonts.forEach((face) => {
+      if (face.family.replace(/^["']|["']$/g, '') === family(k) && face.status === 'error') document.fonts.delete(face);
+    });
   }
 
   /**
@@ -342,7 +364,10 @@ const Fonts = (() => {
   async function prepare(s) {
     const out = Object.assign({}, s, { font: key(s.font) });
     if (out.mode !== 'text' || typeof document === 'undefined') return out;
-    if (out.emoji === 'bundled' && !(await loadEmoji())) out.emoji = 'system';
+    if (out.emoji === 'bundled' && !(await loadEmoji())) {
+      if (emojiState === 'failed') throw new Error('the emoji font could not be loaded');
+      out.emoji = 'system';
+    }
     register(out.font);
     const text = String(out.text || '').normalize('NFC');
     const spec = weight(out.font, out.bold) + ' 32px "' + family(out.font) + '"';
@@ -353,6 +378,7 @@ const Fonts = (() => {
       needed ? loadGlyphs(out.font, weight(out.font, out.bold)).catch(() => null) : null
     ]);
     if (needed && (!faces || faces.length === 0 || !document.fonts.check(spec, text) || !outlines)) {
+      unregister(out.font);
       throw new Error('the ' + info(out.font).label + ' font could not be loaded');
     }
     return out;

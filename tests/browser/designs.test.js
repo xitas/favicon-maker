@@ -560,7 +560,7 @@ describe('collapsible sections in the controls panel', () => {
     const { context, page } = await openApp(browser, url);
     try {
       assert.deepEqual(await openState(page), {
-        secTemplates: false, secSource: true, textPanel: true, iconPanel: true, imagePanel: true, secShape: true, secBorder: false, secPosition: false, secDark: false, secSite: false
+        secTemplates: false, secSource: true, textPanel: true, iconPanel: true, imagePanel: true, secShape: true, secBorder: false, secPosition: false, secDark: false, secSite: false, secOffline: false
       });
       assert.equal(await page.locator('#imagePanel').isVisible(), false, 'the image section only shows in image mode');
       assert.equal(await page.locator('#dark').isVisible(), false);
@@ -581,7 +581,7 @@ describe('collapsible sections in the controls panel', () => {
       await page.reload();
       await page.waitForFunction(() => document.documentElement.dataset.ready === '1');
       assert.deepEqual(await openState(page), {
-        secTemplates: false, secSource: true, textPanel: true, iconPanel: true, imagePanel: true, secShape: false, secBorder: false, secPosition: false, secDark: true, secSite: false
+        secTemplates: false, secSource: true, textPanel: true, iconPanel: true, imagePanel: true, secShape: false, secBorder: false, secPosition: false, secDark: true, secSite: false, secOffline: false
       });
     } finally {
       await context.close();

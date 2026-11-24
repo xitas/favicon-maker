@@ -191,6 +191,27 @@ test('History: undo and redo', () => {
   assert.equal(h.redo(), null);
 });
 
+test('History: revert puts back the design as it was after a change that could not be made', () => {
+  const h = new Design.History(100, 1000);
+  h.record({ v: 1 }, null, 0);
+  h.record({ v: 2 }, null, 10);
+  h.record({ v: 3 }, null, 20);
+  // A plain step: back to the one before, with nothing to redo.
+  assert.deepEqual({ ...h.revert({ v: 2 }) }, { v: 2 });
+  assert.equal(h.canRedo(), false, 'the failed change is not offered again');
+  assert.deepEqual({ ...h.undo() }, { v: 1 });
+  // Quick changes to one control merge into one step: 2 → 4 → 5 is one step from 1. Reverting the
+  // failed 5 puts 4 (the last drawn) in its place, so undo still goes back to 1.
+  const g = new Design.History(100, 1000);
+  g.record({ v: 1 }, null, 0);
+  g.record({ v: 4 }, 'font', 5000);
+  g.record({ v: 5 }, 'font', 5300);
+  assert.deepEqual({ ...g.revert({ v: 4 }) }, { v: 4 });
+  assert.equal(g.canUndo(), true);
+  assert.deepEqual({ ...g.undo() }, { v: 1 });
+  assert.equal(g.canRedo(), true);
+});
+
 test('History: a new change clears redo, and an unchanged state is not a step', () => {
   const h = new Design.History();
   h.reset('a');

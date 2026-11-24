@@ -7,7 +7,8 @@
   "scripts": {
     "test": "node --test \"tests/unit/*.test.js\"",
     "test:browser": "node --test --test-concurrency=4 \"tests/browser/*.test.js\"",
-    "app-icon": "node tools/make-app-icon.js"
+    "app-icon": "node tools/make-app-icon.js",
+    "build-sw": "node tools/build-sw.js"
   },
   "engines": {
     "node": ">=22"
