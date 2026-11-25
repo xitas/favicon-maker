@@ -134,8 +134,9 @@ body::before {
 .panel {
   min-width: 0;
   padding: 18px;
-  background: color-mix(in srgb, var(--surface) 88%, transparent);
-  backdrop-filter: blur(12px);
+  /* Solid, not a translucent blur: a backdrop blur is redone every frame anything in the panel changes, which
+     made dragging a slider drop to about 20 frames a second on computers without a GPU. */
+  background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 14px;
   box-shadow: var(--shadow);
