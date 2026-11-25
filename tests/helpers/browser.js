@@ -74,8 +74,17 @@ async function nextFrames(page) {
   await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
 }
 
+// Chromium drops a download when one tab starts many in a row faster than a person clicks: in a quick
+// burst, the 11th is silently not started (a normal window would ask "download multiple files?"). So the
+// tests click Download like a person, at least this far apart in each page.
+const DOWNLOAD_GAP_MS = 250;
+const lastDownload = new WeakMap();
+
 /** Click something that starts a download and return the downloaded bytes and suggested name. */
 async function download(page, selector) {
+  const since = Date.now() - (lastDownload.get(page) || 0);
+  if (since < DOWNLOAD_GAP_MS) await page.waitForTimeout(DOWNLOAD_GAP_MS - since);
+  lastDownload.set(page, Date.now());
   const [dl] = await Promise.all([page.waitForEvent('download'), page.click(selector)]);
   const file = await dl.path();
   return { name: dl.suggestedFilename(), data: fs.readFileSync(file) };

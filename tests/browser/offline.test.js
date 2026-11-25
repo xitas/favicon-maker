@@ -128,6 +128,26 @@ describe('offline use', () => {
     }
   });
 
+  test('offline, every file and then Download all, twice over: all 22 downloads from one tab arrive', async () => {
+    // The case CI hit: after the ten single files, Download all built its ZIP but Chromium dropped the 11th
+    // download in a quick burst from one tab. The helper clicks like a person (see download()), so each
+    // download arrives; nothing in the page waits, and no note says anything went wrong.
+    const { context, page, errors } = await openOnline(browser, server.url);
+    try {
+      await reloadOffline(context, page);
+      const files = await page.evaluate(() => Outputs.FILES.map((f) => f.name));
+      for (let round = 0; round < 2; round++) {
+        for (const name of files) assert.ok((await download(page, `button[aria-label="Download ${name}"]`)).data.length > 50, name);
+        const zip = unzipSync(new Uint8Array((await download(page, '#zip')).data));
+        assert.deepEqual(Object.keys(zip).sort(), files.slice().sort(), `round ${round + 1}: the ZIP has every file`);
+      }
+      assert.equal(await page.locator('#filesNote').textContent(), '');
+      assert.deepEqual(errors.filter((e) => !OFFLINE_FETCH.test(e)), []);
+    } finally {
+      await context.close();
+    }
+  });
+
   test('offline, a font used before works; an unused font or emoji style says so and keeps the design', async () => {
     const { context, page, errors } = await openOnline(browser, server.url);
     try {
