@@ -221,6 +221,7 @@ for (const target of targets()) {
       try {
         await page.goto(url);
         await page.waitForFunction(() => document.documentElement.dataset.ready === '1');
+        await settled(page); // the previews drawn, before picking from them
         // Text mode: the 512 px preview. Pick the default teal background into the text color.
         await page.click('.eyedrop[data-for="fg"]');
         assert.match(await page.locator('#appNote').textContent(), /^Click a pixel on the 512 px preview to pick the text color\. Press Esc to cancel\.$/);

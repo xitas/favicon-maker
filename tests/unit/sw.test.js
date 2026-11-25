@@ -45,6 +45,12 @@ test('optional files: every icon font, every outline file, the emoji font and th
   for (const f of optional) assert.ok(!core.has(f), f);
 });
 
+test('the social preview, README media, robots.txt and sitemap.xml are not kept for offline use', () => {
+  const all = build.coreFiles(ROOT).concat(build.optionalFiles(ROOT));
+  for (const f of ['og-image.png', 'robots.txt', 'sitemap.xml', 'README.md', 'LICENSE']) assert.ok(!all.includes(f), f);
+  assert.ok(!all.some((f) => f.startsWith('docs/')), 'README media');
+});
+
 test('the sizes add up, and nothing outside the app’s own files is listed', () => {
   const block = build.filesBlock(ROOT);
   const optional = new Function(block.replace(/\/\/.*$/gm, '') + '; return OPTIONAL;')();

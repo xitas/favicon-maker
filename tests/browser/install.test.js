@@ -33,8 +33,8 @@ describe('install the app', () => {
   after(async () => { await browser.close(); await server.stop(); });
 
   test('the manifest: names, scope, standalone, light colors, and the app’s own icons', async () => {
-    assert.equal(MANIFEST.name, 'Favicon Generator');
-    assert.ok(MANIFEST.short_name.length <= 12);
+    assert.equal(MANIFEST.name, 'Favicon Maker');
+    assert.ok(MANIFEST.short_name.length <= 15, MANIFEST.short_name);
     assert.ok(MANIFEST.description.length > 20);
     assert.equal(MANIFEST.start_url, './');
     assert.equal(MANIFEST.scope, './');
@@ -88,7 +88,7 @@ describe('install the app', () => {
       assert.equal(await page.evaluate(() => window.__prompted), true);
       await page.evaluate(() => window.dispatchEvent(new Event('appinstalled')));
       assert.equal(await page.locator('#install').isVisible(), false);
-      assert.equal(await page.locator('#toolbarNote').textContent(), 'Favicon Generator is installed.');
+      assert.equal(await page.locator('#toolbarNote').textContent(), 'Favicon Maker is installed.');
       assert.deepEqual(errors, []);
     } finally {
       await context.close();

@@ -3,8 +3,40 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Favicon Generator</title>
-  <meta name="description" content="Make a favicon from text, an emoji or an image. Download favicon.ico, PNG sizes, an Apple touch icon and a web manifest.">
+  <title>Favicon Maker: make every favicon your site needs</title>
+  <meta name="description" content="Make every favicon your site needs from text, an emoji, an icon or your own image: favicon.ico, favicon.svg, PNG sizes, Apple and Android icons and a web manifest. It runs in your browser, so your images never leave your device.">
+  <link rel="canonical" href="https://xitas.github.io/favicon-maker/">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://xitas.github.io/favicon-maker/">
+  <meta property="og:site_name" content="Favicon Maker">
+  <meta property="og:title" content="Favicon Maker">
+  <meta property="og:description" content="Make every favicon your site needs from text, an emoji, an icon or your own image. It runs in your browser, so your images never leave your device.">
+  <meta property="og:image" content="https://xitas.github.io/favicon-maker/og-image.png">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Favicon Maker: the app's wand icon and name, with a row of example icons made with it.">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Favicon Maker">
+  <meta name="twitter:description" content="Make every favicon your site needs from text, an emoji, an icon or your own image, right in your browser.">
+  <meta name="twitter:image" content="https://xitas.github.io/favicon-maker/og-image.png">
+  <meta name="twitter:image:alt" content="Favicon Maker: the app's wand icon and name, with a row of example icons made with it.">
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "Favicon Maker",
+      "url": "https://xitas.github.io/favicon-maker/",
+      "description": "Make every favicon your site needs from text, an emoji, an icon or your own image: favicon.ico, favicon.svg, PNG sizes, Apple and Android icons and a web manifest. It runs in your browser, so your images never leave your device.",
+      "applicationCategory": "DesignApplication",
+      "operatingSystem": "Any",
+      "browserRequirements": "Requires JavaScript and a current browser.",
+      "image": "https://xitas.github.io/favicon-maker/og-image.png",
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+      "isAccessibleForFree": true,
+      "license": "https://polyformproject.org/licenses/noncommercial/1.0.0/"
+    }
+  </script>
   <!-- app-icon: written by tools/make-app-icon.js -->
   <link rel="icon" href="assets/app-icon/favicon.ico" sizes="32x32">
   <link rel="icon" href="assets/app-icon/favicon.svg" type="image/svg+xml" sizes="any">
@@ -28,6 +60,8 @@
       var root = document.documentElement;
       root.setAttribute('data-theme', dark ? 'dark' : 'light');
       root.setAttribute('data-theme-choice', choice);
+      // Scripts run: the output column waits for them to build its contents (see .out in style.css).
+      root.classList.add('js');
       if (choice !== 'system') {
         // The browser bar in the chosen theme's color, whatever the system setting.
         var metas = document.querySelectorAll('meta[name="theme-color"][data-color]');
@@ -54,7 +88,7 @@
     <header class="top">
       <canvas id="heroIcon" class="hero-icon" width="128" height="128" aria-hidden="true"></canvas>
       <div>
-        <h1>Favicon Generator</h1>
+        <h1>Favicon Maker</h1>
         <p>Design an icon from text, an emoji or an image, then download everything a website needs. It all happens in your browser, so your image never leaves your device.</p>
         <p id="appNote" class="hint note-line" role="status"></p>
       </div>
@@ -123,6 +157,7 @@
                 <label class="check" for="bold"><input type="checkbox" id="bold" checked aria-describedby="fontNote"> Bold</label>
               </div>
               <p id="fontNote" class="hint note-line" role="status"></p>
+              <button id="fontRetry" class="btn ghost small retry" type="button" aria-describedby="fontNote" hidden>Try again</button>
             </div>
             <div class="field">
               <label class="col" for="emoji">Emoji style
@@ -151,6 +186,7 @@
             <p id="iconCount" class="hint" role="status"></p>
             <div id="iconGrid" class="icon-grid" role="listbox" aria-label="Icons" aria-describedby="iconCount"></div>
             <p id="iconNote" class="hint note-line" role="status"></p>
+            <button id="iconRetry" class="btn ghost small retry" type="button" aria-describedby="iconNote" hidden>Try again</button>
             <label class="color" for="iconColor">Icon color <input type="color" id="iconColor" value="#ffffff"></label>
             <label class="col" for="iconStroke">
               <span class="row">Line width <output id="iconStrokeOut" for="iconStroke">2</output></span>

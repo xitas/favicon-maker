@@ -64,6 +64,10 @@ jobs:
       # With the cache, only the system libraries are installed; the browsers are already there.
       - run: npx playwright install --with-deps chromium firefox
       - run: node --test --test-concurrency=2 ${{ matrix.files }}
+      # The timing check runs on its own, after the rest, so other tests don't take its CPU.
+      - name: Timing check (dragging a slider)
+        if: contains(matrix.files, 'checks.test.js')
+        run: npm run test:perf
       # When "same everywhere" fails, its renders and difference images are kept for inspection.
       - name: Upload the same-everywhere images
         if: failure() && hashFiles('test-results/same-everywhere/*.png') != ''

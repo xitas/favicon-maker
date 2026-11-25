@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://xitas.github.io/favicon-maker/sitemap.xml

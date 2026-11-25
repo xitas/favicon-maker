@@ -27,6 +27,7 @@
     sizes: $('sizes'), files: $('files'), filesNote: $('filesNote'), zip: $('zip'),
     basePath: $('basePath'), snippet: $('snippet'), copySnippet: $('copySnippet'),
     undo: $('undo'), redo: $('redo'), reset: $('reset'), appNote: $('appNote'),
+    fontRetry: $('fontRetry'), iconRetry: $('iconRetry'),
     surprise: $('surprise'), install: $('install'), toolbarNote: $('toolbarNote'), secTemplates: $('secTemplates'), templates: $('templates'),
     templatesOffline: $('templatesOffline'), secOffline: $('secOffline'), offlineStatus: $('offlineStatus'), offlineAll: $('offlineAll'),
     offlineCancel: $('offlineCancel'), offlineProgress: $('offlineProgress'), offlineNote: $('offlineNote'), persistNote: $('persistNote'),
@@ -390,7 +391,10 @@
   /* ---------- Refresh ---------- */
   let queued = false;
   let drawSeq = 0;
+  const RETRYING = 'Trying again…';
   function refresh() {
+    // While a redraw is pending, <html data-drawing> says so (the browser tests wait for it to go).
+    document.documentElement.dataset.drawing = '1';
     if (queued) return;
     queued = true;
     requestAnimationFrame(() => {
@@ -407,7 +411,10 @@
       // Wait for the fonts, so the previews never show a fallback font. Only the latest request draws.
       Outputs.prepare(raw).then((s) => {
         if (seq !== drawSeq) return;
-        if (el.fontNote.classList.contains('err')) setStatus(el.fontNote, '', false);
+        for (const note of [el.fontNote, el.iconNote]) {
+          if (note.classList.contains('err') || note.textContent === RETRYING) setStatus(note, '', false);
+        }
+        el.fontRetry.hidden = el.iconRetry.hidden = true;
         updateFontControls();
         updateEmojiNote(raw, s);
         draw(s);
@@ -418,15 +425,24 @@
           pendingOfflineNote.forEach(([node, text]) => setStatus(node, text, false));
           pendingOfflineNote = null;
         }
+        delete document.documentElement.dataset.drawing;
       }, (err) => {
         if (seq !== drawSeq) return;
+        delete document.documentElement.dataset.drawing;
         if (!navigator.onLine) {
           offlineFailure(raw, err);
           return;
         }
+        // Fonts and icons are tried again a couple of times before this (see Fonts.prepare). The previews keep
+        // the last design that could be drawn, whole, and Try again asks once more.
         if (raw.mode === 'icon' && Icons.loaded() && !Icons.get(raw.icon)) updateIconNote();
-        else if (raw.mode === 'icon') setStatus(el.iconNote, 'Could not draw the icon: ' + err.message + '.', true);
-        else setStatus(el.fontNote, 'Could not load the font: ' + err.message + '. Try another font, or reload the page.', true);
+        else if (raw.mode === 'icon') {
+          setStatus(el.iconNote, 'Could not load the icons: ' + err.message + '. The previews still show the last design. Check the connection and try again.', true);
+          el.iconRetry.hidden = false;
+        } else {
+          setStatus(el.fontNote, 'Could not load the font: ' + err.message + '. The previews still show the last design. Check the connection and try again, or choose another font.', true);
+          el.fontRetry.hidden = false;
+        }
       });
     });
   }
@@ -1227,7 +1243,7 @@
     window.addEventListener('appinstalled', () => {
       installPrompt = null;
       syncInstall();
-      setStatus(el.toolbarNote, 'Favicon Generator is installed.', false);
+      setStatus(el.toolbarNote, 'Favicon Maker is installed.', false);
     });
     el.install.addEventListener('click', installApp);
     syncInstall();
@@ -1805,7 +1821,14 @@
   /** Restore the autosaved design and saved designs, then open a share link if there is one. */
   async function restore() {
     const persistent = await Store.init();
-    if (!persistent) setAppNote(NOTES.storage, false);
+    if (!persistent) {
+      setAppNote(NOTES.storage, false);
+      // A slow device may open its storage a moment later: then designs can be saved after all.
+      Store.onPersistent(() => {
+        if (el.appNote.textContent === NOTES.storage) setAppNote('', false);
+        scheduleSave();
+      });
+    }
     designs = readDesignList();
     const cur = Store.getJson('current');
     let restored = false;
@@ -1877,6 +1900,13 @@
     el.redo.addEventListener('click', () => moveHistory('redo'));
     el.reset.addEventListener('click', resetDesign);
     el.surprise.addEventListener('click', surpriseMe);
+    for (const [button, note] of [[el.fontRetry, el.fontNote], [el.iconRetry, el.iconNote]]) {
+      button.addEventListener('click', () => {
+        button.hidden = true;
+        setStatus(note, RETRYING, false);
+        refresh();
+      });
+    }
     buildTemplates();
     el.secTemplates.addEventListener('toggle', drawTemplates);
     el.centerOffsets.addEventListener('click', () => {
@@ -1970,6 +2000,7 @@
   setStatus(el.textNote, '', false);
   updateDownloads();
   el.snippet.querySelector('code').textContent = Outputs.snippet(readSettings());
+  document.querySelector('.out').classList.add('built'); // its contents are in place: show it
   refresh();
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(refresh);
   // Bring back the saved design. The page says it is ready (for tests and scripts) once that is done.

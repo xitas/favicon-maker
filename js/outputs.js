@@ -160,7 +160,14 @@ const Outputs = (() => {
   async function prepare(s) {
     const out = await Fonts.prepare(s);
     if (out.mode === 'icon') {
-      if (!(await Icons.load())) throw new Error('the icon library could not be loaded');
+      // Tried again after a pause or two, like the fonts: a slow connection often works a moment later.
+      let loaded = await Icons.load();
+      for (const ms of [500, 1500]) {
+        if (loaded || navigator.onLine === false) break;
+        await new Promise((resolve) => setTimeout(resolve, ms));
+        loaded = await Icons.load();
+      }
+      if (!loaded) throw new Error('the icon library could not be loaded');
       if (!Icons.get(out.icon)) throw new Error('the icon “' + out.icon + '” isn’t in the library');
     }
     return out;

@@ -24,24 +24,49 @@ const Store = (() => {
     }
   }
 
+  const lateListeners = [];
+
+  /**
+   * Open the image database. Some browsers never answer on file:// or in private windows, so the page
+   * carries on in memory after a moment. A slow device may still answer later: then the database is used
+   * from then on, the images kept in memory meanwhile move into it, and onPersistent listeners hear of it.
+   */
   function openDb() {
     return new Promise((resolve) => {
       let done = false;
       const finish = (value) => { if (!done) { done = true; resolve(value); } };
-      // Some browsers never answer on file:// or in private windows: give up after a moment.
       setTimeout(() => finish(null), 2000);
       try {
         const req = indexedDB.open(DB_NAME, 1);
         req.onupgradeneeded = () => {
           try { req.result.createObjectStore(DB_STORE); } catch (e) { /* already there */ }
         };
-        req.onsuccess = () => finish(req.result);
+        req.onsuccess = () => {
+          if (!done) { finish(req.result); return; }
+          if (!db) adoptLate(req.result);
+        };
         req.onerror = () => finish(null);
         req.onblocked = () => finish(null);
       } catch (e) {
         finish(null);
       }
     });
+  }
+
+  async function adoptLate(opened) {
+    db = opened;
+    for (const [id, value] of Array.from(memory.images)) {
+      try {
+        await request('readwrite', (s) => s.put(value, id));
+        memory.images.delete(id);
+      } catch (e) { /* stays in memory */ }
+    }
+    if (persistent()) lateListeners.splice(0).forEach((fn) => { try { fn(); } catch (e) { /* none */ } });
+  }
+
+  /** Call `fn` if the image database opens only after init() gave up waiting (a slow device). */
+  function onPersistent(fn) {
+    lateListeners.push(fn);
   }
 
   /** Find out what can be used. Resolves to true when designs can be saved (both stores work). */
@@ -87,16 +112,22 @@ const Store = (() => {
 
   /* ---------- Images (IndexedDB) ---------- */
 
+  // A request the database doesn't finish by then fails, and the caller falls back to memory: the page
+  // never waits on it forever (it once kept a busy test browser from ever finishing its start).
+  const REQUEST_LIMIT = 10000;
+
   function request(mode, fn) {
     return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('the image database did not answer')), REQUEST_LIMIT);
+      const done = (f) => (value) => { clearTimeout(timer); f(value); };
       try {
         const tx = db.transaction(DB_STORE, mode);
         const req = fn(tx.objectStore(DB_STORE));
-        tx.oncomplete = () => resolve(req ? req.result : undefined);
-        tx.onerror = () => reject(tx.error);
-        tx.onabort = () => reject(tx.error);
+        tx.oncomplete = () => done(resolve)(req ? req.result : undefined);
+        tx.onerror = () => done(reject)(tx.error);
+        tx.onabort = () => done(reject)(tx.error);
       } catch (e) {
-        reject(e);
+        done(reject)(e);
       }
     });
   }
@@ -167,5 +198,5 @@ const Store = (() => {
     return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
   }
 
-  return { init, persistent, getJson, setJson, putImage, getImage, deleteImage, collect, forgetAll, newId };
+  return { init, onPersistent, persistent, getJson, setJson, putImage, getImage, deleteImage, collect, forgetAll, newId };
 })();

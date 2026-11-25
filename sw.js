@@ -17,26 +17,26 @@
 'use strict';
 
 // <files> written by tools/build-sw.js; do not edit by hand
-var VERSION = "6c703296fe1f";
+var VERSION = "75c61568b920";
 var CORE = {
-  "index.html": "1f4a2765d9927747",
-  "manifest.webmanifest": "fe83f065276dac97",
-  "css/style.css": "cb409b0f0f4566cf",
-  "js/app.js": "ff37e55bf634e5c5",
+  "index.html": "f0639f7f38ce5618",
+  "manifest.webmanifest": "3fa9991e5862b77d",
+  "css/style.css": "fb22d221314cf5d6",
+  "js/app.js": "197304b0e5dec790",
   "js/checks.js": "bb9bef75791567e5",
   "js/design.js": "6c8ab277a811f8c1",
   "js/dialog.js": "eeedbea06092c76b",
   "js/draw.js": "d4ec99186b402f1d",
-  "js/fonts.js": "6258641ee82c830f",
+  "js/fonts.js": "c7f8c943e5160634",
   "js/icons.js": "6285bf293b94e5f6",
   "js/imagetools.js": "e36dc5dcbe0ad246",
   "js/lib/ico.js": "ff412876c5136fc6",
   "js/lib/shrink.js": "79c1916aae87a16c",
   "js/lib/svg.js": "440b485feafbae13",
   "js/lib/zip.js": "2b1af98edf649073",
-  "js/outputs.js": "68ac04d65ca916dc",
+  "js/outputs.js": "d445f206c28a836f",
   "js/previews.js": "8a8f067f9be0df3c",
-  "js/store.js": "ab82f6168f2266b7",
+  "js/store.js": "d688d27b432d990f",
   "js/templates.js": "10076c5185477c29",
   "js/theme.js": "fe6717f2ac1cec04",
   "assets/fonts/display/anton-name.woff2": "f6b0a10bcea248ae",

@@ -1,7 +1,7 @@
 {
   "id": "./",
-  "name": "Favicon Generator",
-  "short_name": "Favicons",
+  "name": "Favicon Maker",
+  "short_name": "Favicon Maker",
   "description": "Make a favicon from text, an emoji, an icon or an image, and download every file a website needs. Everything happens on your device.",
   "start_url": "./",
   "scope": "./",

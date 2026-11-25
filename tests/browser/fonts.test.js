@@ -263,6 +263,79 @@ for (const target of targets()) {
       }
     });
 
+    test('a font download that fails once is tried again by itself, and the icon is drawn', async (t) => {
+      if (target.label !== 'http://') return t.skip('needs the server to fail the request');
+      const { context, page, errors } = await openApp(browser, url);
+      try {
+        // The first request for the font and for its outlines fails, as on a flaky connection.
+        const failed = new Set();
+        await context.route(/nunito-(variable\.woff2|700\.glyphs\.js)$/, (route) => {
+          const name = new URL(route.request().url()).pathname;
+          if (failed.has(name)) return route.continue();
+          failed.add(name);
+          return route.abort('connectionreset');
+        });
+        await setValue(page, 'font', 'rounded');
+        assert.equal(failed.size, 2, 'both files failed once');
+        assert.equal(await page.locator('#fontNote').textContent(), '');
+        assert.equal(await page.locator('#fontRetry').isVisible(), false);
+        assert.equal(await page.evaluate(() => Fonts.glyphs('rounded', 700) !== null), true, 'drawn from the outlines');
+        assert.deepEqual(errors.filter((e) => !/Failed to load resource/.test(e)), []);
+      } finally {
+        await context.close();
+      }
+    });
+
+    test('a font that keeps failing says so, keeps the previews whole, and Try again works once it loads', async (t) => {
+      if (target.label !== 'http://') return t.skip('needs the server to fail the request');
+      const { context, page } = await openApp(browser, url);
+      try {
+        const before = await page.evaluate(() => document.querySelector('#sizes canvas[aria-label="512 pixel preview"]').toDataURL());
+        let failing = true;
+        await context.route(/caveat-/, (route) => (failing ? route.abort('connectionreset') : route.continue()));
+        await setValue(page, 'font', 'handwritten');
+        assert.match(await page.locator('#fontNote').textContent(), /^Could not load the font: the Caveat font could not be loaded\. The previews still show the last design\. Check the connection and try again, or choose another font\.$/);
+        assert.equal(await page.locator('#fontRetry').isVisible(), true);
+        const after = await page.evaluate(() => document.querySelector('#sizes canvas[aria-label="512 pixel preview"]').toDataURL());
+        assert.equal(after, before, 'the previews keep the last design, whole');
+        assert.equal(await page.evaluate(() => document.documentElement.dataset.drawing), undefined, 'nothing is left waiting');
+
+        // The connection is back: Try again draws it, by keyboard.
+        failing = false;
+        await page.locator('#fontRetry').focus();
+        await page.keyboard.press('Enter');
+        await settled(page);
+        assert.equal(await page.locator('#fontNote').textContent(), '');
+        assert.equal(await page.locator('#fontRetry').isVisible(), false);
+        const drawn = await page.evaluate(() => document.querySelector('#sizes canvas[aria-label="512 pixel preview"]').toDataURL());
+        assert.notEqual(drawn, before, 'now drawn in Caveat');
+      } finally {
+        await context.close();
+      }
+    });
+
+    test('the icon library that keeps failing says so, and Try again loads it', async (t) => {
+      if (target.label !== 'http://') return t.skip('needs the server to fail the request');
+      const { context, page } = await openApp(browser, url);
+      try {
+        let failing = true;
+        await context.route(/lucide\.js$/, (route) => (failing ? route.abort('connectionreset') : route.continue()));
+        await page.click('#modeIcon');
+        await settled(page);
+        assert.match(await page.locator('#iconNote').textContent(), /^Could not load the icons: the icon library could not be loaded\./);
+        assert.equal(await page.locator('#iconRetry').isVisible(), true);
+        failing = false;
+        await page.click('#iconRetry');
+        await settled(page);
+        await page.waitForFunction(() => Icons.loaded());
+        await settled(page);
+        assert.equal(await page.locator('#iconRetry').isVisible(), false);
+        assert.doesNotMatch(await page.locator('#iconNote').textContent(), /Could not/);
+      } finally {
+        await context.close();
+      }
+    });
+
     test('Same everywhere falls back to system emoji with a note when the font draws nothing', async (t) => {
       if (target.label !== 'http://') return t.skip('needs the server to swap the font');
       const { context, page } = await openApp(browser, url);

@@ -58,6 +58,9 @@ async function openApp(browser, url, options = {}) {
 /** Wait until the previews are drawn: the next frames, then any font loading. */
 async function settled(page) {
   await nextFrames(page);
+  // The page's own redraw: it waits for fonts (and tries again if one fails), so it can take more than a
+  // few frames on a busy machine. <html data-drawing> is set until it has drawn (see refresh in app.js).
+  await page.waitForFunction(() => !document.documentElement.dataset.drawing, null, { timeout: 60000 });
   await page.evaluate(() => document.fonts.ready);
   await page.evaluate(() => {
     const mode = document.getElementById('modeIcon') && document.getElementById('modeIcon').getAttribute('aria-pressed') === 'true' ? 'icon' : 'text';

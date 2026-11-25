@@ -354,35 +354,65 @@ const Fonts = (() => {
     });
   }
 
+  // A download that fails is tried again after these pauses (in ms), as a slow or briefly broken connection
+  // often works a moment later. Offline, there's no point: the page says the font isn't available offline.
+  const RETRY_DELAYS = [500, 1500];
+  const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  /** Run `attempt` until it works, trying again after each pause; the last failure is passed on. */
+  async function withRetries(attempt) {
+    for (let i = 0; ; i++) {
+      try {
+        return await attempt();
+      } catch (e) {
+        const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+        if (offline || i >= RETRY_DELAYS.length) throw e;
+        await pause(RETRY_DELAYS[i]);
+      }
+    }
+  }
+
+  /** Load the chosen font in its weight, for `text`, and its outlines. Throws when either can't be loaded. */
+  async function loadFont(name, bold, text) {
+    register(name);
+    const spec = weight(name, bold) + ' 32px "' + family(name) + '"';
+    // The font (for measuring, and for drawing what isn't drawn from outlines) and its outlines, together.
+    const [faces, outlines] = await Promise.all([
+      document.fonts.load(spec, text || ' ').catch(() => null),
+      loadGlyphs(name, weight(name, bold)).catch(() => null)
+    ]);
+    if (!faces || faces.length === 0 || !document.fonts.check(spec, text) || !outlines) {
+      unregister(name); // so the next attempt downloads it again instead of failing at once
+      throw new Error('the ' + info(name).label + ' font could not be loaded');
+    }
+  }
+
   /**
    * Load what the settings need before drawing: the chosen font in the chosen weight, for the characters
    * in the text, and the bundled emoji font if chosen. Resolves to the settings to draw with: `font` is a
    * known key, and `emoji` is 'system' when the bundled emoji font can't be used here.
    * The font's glyph outlines are loaded too: the icon's letters are drawn from them (see Draw).
-   * Rejects when the font can't be loaded, so nothing is drawn or saved with a fallback font.
+   * A failed download is tried again twice (see RETRY_DELAYS). Rejects when it still can't be loaded, so
+   * nothing is drawn or saved with a fallback font.
    */
   async function prepare(s) {
     const out = Object.assign({}, s, { font: key(s.font) });
     if (out.mode !== 'text' || typeof document === 'undefined') return out;
-    if (out.emoji === 'bundled' && !(await loadEmoji())) {
-      if (emojiState === 'failed') throw new Error('the emoji font could not be loaded');
-      out.emoji = 'system';
+    if (out.emoji === 'bundled') {
+      const ok = await withRetries(async () => {
+        const drawn = await loadEmoji();
+        if (!drawn && emojiState === 'failed') throw new Error('the emoji font could not be loaded');
+        return drawn;
+      });
+      if (!ok) out.emoji = 'system';
     }
     register(out.font);
     const text = String(out.text || '').normalize('NFC');
-    const spec = weight(out.font, out.bold) + ' 32px "' + family(out.font) + '"';
     const needed = text.length > 0 && Array.from(text).some((ch) => has(out.font, ch.codePointAt(0)));
-    // The font (for measuring, and for drawing what isn't drawn from outlines) and its outlines, together.
-    const [faces, outlines] = await Promise.all([
-      document.fonts.load(spec, text || ' ').catch(() => null),
-      needed ? loadGlyphs(out.font, weight(out.font, out.bold)).catch(() => null) : null
-    ]);
-    if (needed && (!faces || faces.length === 0 || !document.fonts.check(spec, text) || !outlines)) {
-      unregister(out.font);
-      throw new Error('the ' + info(out.font).label + ' font could not be loaded');
-    }
+    if (needed) await withRetries(() => loadFont(out.font, out.bold, text));
     return out;
   }
+
 
   /* ---------- Glyph outlines: the icon's letters, on the canvas and in favicon.svg ---------- */
 

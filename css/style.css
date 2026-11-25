@@ -129,6 +129,9 @@ body::before {
   align-items: start;
 }
 .out { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+/* The previews, file list and snippet are built by the scripts. Until then the column keeps its place but
+   isn't shown, so nothing visible jumps down when they appear (on a slow phone the page paints first). */
+.js .out:not(.built) { visibility: hidden; }
 
 /* Panels */
 .panel {
@@ -159,7 +162,13 @@ body::before {
   from { opacity: 0; transform: translateY(14px); }
   to { opacity: 1; transform: none; }
 }
-.top, .controls, .out > .panel { animation: rise 0.6s var(--ease) both; }
+/* On load, a slide only: the page is readable from its first frame, even on a slow phone where a fade
+   from nothing would keep the text hidden while the page starts up. */
+@keyframes settle {
+  from { transform: translateY(10px); }
+  to { transform: none; }
+}
+.top, .controls, .out > .panel { animation: settle 0.6s var(--ease) both; }
 .controls { animation-delay: 0.08s; }
 .out > .panel:nth-child(1) { animation-delay: 0.14s; }
 .out > .panel:nth-child(2) { animation-delay: 0.2s; }
@@ -493,7 +502,7 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
 .tab span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .tab canvas { width: 16px; height: 16px; flex: none; }
 /* Design checks: advice, never errors. No color: an outline and a mark set them apart. */
-.checks { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+.checks { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; min-height: 18px; } /* one line, kept while the first drawing is made */
 .check-warn {
   display: flex;
   flex-wrap: wrap;
@@ -883,3 +892,6 @@ pre {
 @media (prefers-reduced-motion: reduce) {
   .theme-switching, .theme-switching *, .theme-switching *::before, .theme-switching *::after { transition: none !important; }
 }
+
+/* Try again, under a note when a font or the icons could not be loaded */
+.retry { margin-top: 6px; }

@@ -32,7 +32,7 @@ const DESIGN = {
   dark: true,
   darkFg: '#0a0a0a',
   darkBg: '#f5f5f5',
-  appName: 'Favicon Generator',
+  appName: 'Favicon Maker',
   basePath: '/' + OUT_DIR
 };
 
